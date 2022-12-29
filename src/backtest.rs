@@ -8,7 +8,6 @@ use crate::types::SettingConfig;
 
 pub struct Backtest {
     look_back_count: usize,
-    kline_percentage: f64,
     momentum: VecDeque<f64>,
     initial_captial: f64,
     entry_portion: f64,
@@ -33,7 +32,6 @@ impl Backtest {
     pub fn new(config: SettingConfig) -> Backtest {
         Backtest {
             look_back_count: config.look_back_count,
-            kline_percentage: config.kline_percentage,
             momentum: VecDeque::new(),
             initial_captial: config.initial_captial,
             entry_portion: config.entry_portion,
@@ -51,7 +49,7 @@ impl Backtest {
         for k_index in 0..klines.len() {
             let kline = &klines[k_index];
             trades.retain_mut(|trade: &mut Trade| {
-                if kline.close > trade.tp_price {
+                if kline.high > trade.tp_price {
                     let profit = (kline.close - trade.entry_price) * trade.position;
                     metric.usd_balance += profit;
                     metric.win += 1;
@@ -94,11 +92,13 @@ impl Backtest {
                             sl_price_diff = kline.close * 0.05;
                         }
                         let sl_price = entry_price - sl_price_diff;
-                        let tp_price = entry_price + 3. * sl_price_diff;
+                        let tp_price = entry_price + 3.0 * sl_price_diff;
                         let position = metric.initial_captial * self.entry_portion / entry_price;
+                        let entry_ts = kline.close_time;
                         let trade = Trade {
                             entry_price,
                             entry_side,
+                            entry_ts,
                             tp_price,
                             sl_price,
                             position,
@@ -123,12 +123,14 @@ impl Backtest {
 
 fn trade_log(metric: &BacktestMetric, trade: &Trade, curr_kline: &Kline) {
     let curr_date = NaiveDateTime::from_timestamp_millis(curr_kline.close_time).unwrap();
+    let entry_date = NaiveDateTime::from_timestamp_millis(trade.entry_ts).unwrap();
     let mut msg = "".to_string();
     msg += &format!("date: {:?}, ", curr_date);
     msg += &format!("win: {:?}, ", metric.win);
     msg += &format!("lose: {:?}, ", metric.lose);
     msg += &format!("usd_balance: {:.4}, ", metric.usd_balance);
     msg += &format!("position: {:.4}, ", trade.position);
+    msg += &format!("entry_date: {:?}, ", entry_date);
     msg += &format!("entry_side: {:?}, ", trade.entry_side);
     msg += &format!("entry_price: {:.4}, ", trade.entry_price);
     msg += &format!("exit_price: {:.4}, ", trade.exit_price);
