@@ -1,7 +1,11 @@
 use clap::Parser;
-use momentum::{backtest::Backtest, types::SettingConfig, utils::get_klines_from_db};
+use momentum::{
+    backtest::Backtest,
+    types::{Cli, SettingConfig},
+    utils::get_klines_from_db,
+};
 use std::fs::File;
-use trade_utils::types::cli::{Cli, Mode};
+use trade_utils::types::cli::Mode;
 
 use log::{info, LevelFilter};
 
@@ -16,15 +20,15 @@ fn main() {
     )])
     .unwrap();
     let args = Cli::parse();
-    let config_file = File::open(&args.config_path).unwrap();
-    let config: SettingConfig = serde_json::from_reader(config_file).unwrap();
-    info!("args: {:?}, config: {:?}", args, config);
-
-    let klines = get_klines_from_db(&config.from, &config.to);
-    info!("klines num: {:?}", klines.len());
+    info!("args: {:?}", args);
     match args.mode {
         Mode::Backtest => {
-            let mut backtest = Backtest::new(config);
+            let config_file = File::open(&args.backtest_config.unwrap()).unwrap();
+            let backtest_config: SettingConfig = serde_json::from_reader(config_file).unwrap();
+            info!("backtest_config: {:?}", backtest_config);
+            let klines = get_klines_from_db(&backtest_config.from, &backtest_config.to);
+            info!("klines num: {:?}", klines.len());
+            let mut backtest = Backtest::new(backtest_config);
             backtest.run(klines);
         }
         Mode::Hypertune => todo!(),
