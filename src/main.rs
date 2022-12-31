@@ -1,6 +1,6 @@
 use clap::Parser;
 use momentum::{
-    backtest::Backtest,
+    backtest::{Backtest, BacktestMetric},
     consts::*,
     types::{Cli, SettingConfig},
     utils::get_klines_from_db,
@@ -30,8 +30,9 @@ fn main() {
             let klines =
                 get_klines_from_db(&backtest_config.from, &backtest_config.to, AVAXUSDT_1D);
             info!("klines num: {:?}", klines.len());
-            let mut backtest = Backtest::new(backtest_config);
-            backtest.run(klines);
+            let mut backtest = Backtest::new(&backtest_config);
+            let mut metric = BacktestMetric::new(&backtest_config);
+            backtest.run(klines, &mut metric);
         }
         Mode::Hypertune => todo!(),
     }

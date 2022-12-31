@@ -13,7 +13,7 @@ pub struct Backtest {
 
 #[derive(Default)]
 pub struct BacktestMetric {
-    initial_captial: f64,
+    pub initial_captial: f64,
     usd_balance: f64,
     win: usize,
     lose: usize,
@@ -25,20 +25,27 @@ pub struct BacktestMetric {
     profit: f64,
 }
 
+impl BacktestMetric {
+    pub fn new(config: &SettingConfig) -> BacktestMetric {
+        BacktestMetric {
+            usd_balance: config.initial_captial,
+            initial_captial: config.initial_captial,
+            max_usd: f64::MIN,
+            min_usd: f64::MAX,
+            ..Default::default()
+        }
+    }
+}
+
 impl Backtest {
-    pub fn new(config: SettingConfig) -> Backtest {
+    pub fn new(config: &SettingConfig) -> Backtest {
         Backtest {
-            config,
+            config: config.clone(),
             momentum: VecDeque::new(),
         }
     }
 
-    pub fn run(&mut self, klines: Vec<Kline>) {
-        let mut metric = BacktestMetric {
-            usd_balance: self.config.initial_captial,
-            initial_captial: self.config.initial_captial,
-            ..Default::default()
-        };
+    pub fn run(&mut self, klines: Vec<Kline>, metric: &mut BacktestMetric) {
         let mut trades: Vec<Trade> = Vec::new();
         for k_index in 0..klines.len() {
             let kline = &klines[k_index];
@@ -53,7 +60,7 @@ impl Backtest {
                         metric.profit = profit;
                         metric.total_profit += profit;
                         trade.exit_price = trade.tp_price;
-                        trade_log(&metric, &trade, &kline);
+                        trade_log(metric, &trade, &kline);
                         false
                     } else if kline.low <= trade.sl_price {
                         let profit = (trade.sl_price - trade.entry_price) * trade.position;
@@ -64,7 +71,7 @@ impl Backtest {
                         metric.profit = profit;
                         metric.total_profit += profit;
                         trade.exit_price = trade.sl_price;
-                        trade_log(&metric, &trade, &kline);
+                        trade_log(metric, &trade, &kline);
                         false
                     } else {
                         // if trade.tp_price >= trade.entry_price * 1.01 {
@@ -82,7 +89,7 @@ impl Backtest {
                         metric.profit = profit;
                         metric.total_profit += profit;
                         trade.exit_price = trade.tp_price;
-                        trade_log(&metric, &trade, &kline);
+                        trade_log(metric, &trade, &kline);
                         false
                     } else if kline.high >= trade.sl_price {
                         let profit = (trade.entry_price - trade.sl_price) * trade.position;
@@ -93,7 +100,7 @@ impl Backtest {
                         metric.profit = profit;
                         metric.total_profit += profit;
                         trade.exit_price = trade.sl_price;
-                        trade_log(&metric, &trade, &kline);
+                        trade_log(metric, &trade, &kline);
                         false
                     } else {
                         // if trade.tp_price <= trade.entry_price * 0.99 {
@@ -123,8 +130,7 @@ impl Backtest {
                         }
                         let sl_price = entry_price - sl_price_diff;
                         let tp_price = entry_price + self.config.win_ratio * sl_price_diff;
-                        let position =
-                            metric.initial_captial * self.config.entry_portion / entry_price;
+                        let position = metric.usd_balance * self.config.entry_portion / entry_price;
                         let entry_ts = kline.close_time;
                         let trade = Trade {
                             entry_price,
@@ -147,8 +153,7 @@ impl Backtest {
                         }
                         let sl_price = entry_price + sl_price_diff;
                         let tp_price = entry_price - self.config.win_ratio * sl_price_diff;
-                        let position =
-                            metric.initial_captial * self.config.entry_portion / entry_price;
+                        let position = metric.usd_balance * self.config.entry_portion / entry_price;
                         let entry_ts = kline.close_time;
                         let trade = Trade {
                             entry_price,
@@ -176,14 +181,18 @@ impl Backtest {
     }
 }
 
-fn trade_log(metric: &BacktestMetric, trade: &Trade, curr_kline: &Kline) {
+fn trade_log(metric: &mut BacktestMetric, trade: &Trade, curr_kline: &Kline) {
     let curr_date = NaiveDateTime::from_timestamp_millis(curr_kline.close_time).unwrap();
     let entry_date = NaiveDateTime::from_timestamp_millis(trade.entry_ts).unwrap();
+    metric.max_usd = metric.max_usd.max(metric.usd_balance);
+    metric.min_usd = metric.min_usd.min(metric.usd_balance);
     let mut msg = "".to_string();
     msg += &format!("date: {:?}, ", curr_date);
     msg += &format!("win: {:?}, ", metric.win);
     msg += &format!("lose: {:?}, ", metric.lose);
     msg += &format!("usd_balance: {:.4}, ", metric.usd_balance);
+    msg += &format!("max_usd: {:.4}, ", metric.max_usd);
+    msg += &format!("min_usd: {:.4}, ", metric.min_usd);
     msg += &format!("position: {:.4}, ", trade.position);
     msg += &format!("entry_date: {:?}, ", entry_date);
     msg += &format!("entry_side: {:?}, ", trade.entry_side);
