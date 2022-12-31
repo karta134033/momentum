@@ -44,58 +44,61 @@ impl Backtest {
             let kline = &klines[k_index];
             trades.retain_mut(|trade: &mut Trade| {
                 if trade.entry_side == TradeSide::Buy {
-                    if kline.close >= trade.tp_price {
-                        let profit = (kline.close - trade.entry_price) * trade.position;
+                    if kline.high >= trade.tp_price {
+                        let profit = (trade.tp_price - trade.entry_price) * trade.position;
                         metric.usd_balance += profit;
                         metric.win += 1;
-                        metric.fee = kline.close * trade.position * self.config.fee_rate;
+                        metric.fee = trade.tp_price * trade.position * self.config.fee_rate;
                         metric.total_fee += metric.fee;
                         metric.profit = profit;
                         metric.total_profit += profit;
-                        trade.exit_price = kline.close;
+                        trade.exit_price = trade.tp_price;
                         trade_log(&metric, &trade, &kline);
                         false
-                    } else if kline.close <= trade.sl_price {
-                        let profit = (kline.close - trade.entry_price) * trade.position;
+                    } else if kline.low <= trade.sl_price {
+                        let profit = (trade.sl_price - trade.entry_price) * trade.position;
                         metric.usd_balance += profit;
                         metric.lose += 1;
-                        metric.fee = kline.close * trade.position * self.config.fee_rate;
+                        metric.fee = trade.sl_price * trade.position * self.config.fee_rate;
                         metric.total_fee += metric.fee;
                         metric.profit = profit;
                         metric.total_profit += profit;
-                        trade.exit_price = kline.close;
+                        trade.exit_price = trade.sl_price;
                         trade_log(&metric, &trade, &kline);
                         false
                     } else {
                         // if trade.tp_price >= trade.entry_price * 1.01 {
-                        //     trade.tp_price -= trade.entry_price * 0.001;
+                        //     trade.tp_price -= trade.entry_price * 0.005;
                         // }
                         true
                     }
                 } else if trade.entry_side == TradeSide::Sell {
-                    if kline.close <= trade.tp_price {
-                        let profit = (trade.entry_price - kline.close) * trade.position;
+                    if kline.low <= trade.tp_price {
+                        let profit = (trade.entry_price - trade.tp_price) * trade.position;
                         metric.usd_balance += profit;
                         metric.win += 1;
-                        metric.fee = kline.close * trade.position * self.config.fee_rate;
+                        metric.fee = trade.tp_price * trade.position * self.config.fee_rate;
                         metric.total_fee += metric.fee;
                         metric.profit = profit;
                         metric.total_profit += profit;
-                        trade.exit_price = kline.close;
+                        trade.exit_price = trade.tp_price;
                         trade_log(&metric, &trade, &kline);
                         false
-                    } else if kline.close >= trade.sl_price {
-                        let profit = (trade.entry_price - kline.close) * trade.position;
+                    } else if kline.high >= trade.sl_price {
+                        let profit = (trade.entry_price - trade.sl_price) * trade.position;
                         metric.usd_balance += profit;
                         metric.lose += 1;
-                        metric.fee = kline.close * trade.position * self.config.fee_rate;
+                        metric.fee = trade.sl_price * trade.position * self.config.fee_rate;
                         metric.total_fee += metric.fee;
                         metric.profit = profit;
                         metric.total_profit += profit;
-                        trade.exit_price = kline.close;
+                        trade.exit_price = trade.sl_price;
                         trade_log(&metric, &trade, &kline);
                         false
                     } else {
+                        // if trade.tp_price <= trade.entry_price * 0.99 {
+                        //     trade.tp_price += trade.entry_price * 0.005;
+                        // }
                         true
                     }
                 } else {
