@@ -1,10 +1,11 @@
 use clap::Parser;
 use momentum::{
-    backtest::{Backtest, BacktestMetric},
-    consts::*,
-    types::{Cli, SettingConfig},
+    backtest::Backtest,
+    hypertune::hypertune,
+    types::{BacktestConfig, Cli, SettingConfig},
     utils::get_klines_from_db,
 };
+use serde_json::Value;
 use std::fs::File;
 use trade_utils::types::cli::Mode;
 
@@ -22,18 +23,28 @@ fn main() {
     .unwrap();
     let args = Cli::parse();
     info!("args: {:?}", args);
+
+    let setting_config_file = File::open(&args.setting_config.unwrap()).unwrap();
+    let setting_config: SettingConfig = serde_json::from_reader(setting_config_file).unwrap();
+    let klines = get_klines_from_db(
+        &setting_config.from,
+        &setting_config.to,
+        &setting_config.collection,
+    );
     match args.mode {
         Mode::Backtest => {
-            let config_file = File::open(&args.backtest_config.unwrap()).unwrap();
-            let backtest_config: SettingConfig = serde_json::from_reader(config_file).unwrap();
+            let backtest_config_file = File::open(&args.backtest_config.unwrap()).unwrap();
+            let backtest_config: BacktestConfig =
+                serde_json::from_reader(backtest_config_file).unwrap();
             info!("backtest_config: {:?}", backtest_config);
-            let klines =
-                get_klines_from_db(&backtest_config.from, &backtest_config.to, AVAXUSDT_1D);
             info!("klines num: {:?}", klines.len());
             let mut backtest = Backtest::new(&backtest_config);
-            let mut metric = BacktestMetric::new(&backtest_config);
-            backtest.run(klines, &mut metric);
+            backtest.run(&klines);
         }
-        Mode::Hypertune => todo!(),
+        Mode::Hypertune => {
+            let config_file = File::open(&args.hypertune_config.unwrap()).unwrap();
+            let hypertune_config_value: Value = serde_json::from_reader(config_file).unwrap();
+            hypertune(&hypertune_config_value, &klines);
+        }
     }
 }

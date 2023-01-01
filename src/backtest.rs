@@ -4,29 +4,29 @@ use std::collections::VecDeque;
 use trade_utils::types::kline::Kline;
 use trade_utils::types::trade::{Trade, TradeSide};
 
-use crate::types::SettingConfig;
+use crate::types::BacktestConfig;
 
 pub struct Backtest {
-    config: SettingConfig,
+    config: BacktestConfig,
     momentum: VecDeque<f64>,
 }
 
 #[derive(Default)]
 pub struct BacktestMetric {
     pub initial_captial: f64,
-    usd_balance: f64,
-    win: usize,
-    lose: usize,
-    total_fee: f64,
-    total_profit: f64,
-    max_usd: f64,
-    min_usd: f64,
-    fee: f64,
-    profit: f64,
+    pub usd_balance: f64,
+    pub win: usize,
+    pub lose: usize,
+    pub total_fee: f64,
+    pub total_profit: f64,
+    pub max_usd: f64,
+    pub min_usd: f64,
+    pub fee: f64,
+    pub profit: f64,
 }
 
 impl BacktestMetric {
-    pub fn new(config: &SettingConfig) -> BacktestMetric {
+    pub fn new(config: &BacktestConfig) -> BacktestMetric {
         BacktestMetric {
             usd_balance: config.initial_captial,
             initial_captial: config.initial_captial,
@@ -38,14 +38,15 @@ impl BacktestMetric {
 }
 
 impl Backtest {
-    pub fn new(config: &SettingConfig) -> Backtest {
+    pub fn new(config: &BacktestConfig) -> Backtest {
         Backtest {
             config: config.clone(),
             momentum: VecDeque::new(),
         }
     }
 
-    pub fn run(&mut self, klines: Vec<Kline>, metric: &mut BacktestMetric) {
+    pub fn run(&mut self, klines: &Vec<Kline>) -> BacktestMetric {
+        let mut metric = BacktestMetric::new(&self.config);
         let mut trades: Vec<Trade> = Vec::new();
         for k_index in 0..klines.len() {
             let kline = &klines[k_index];
@@ -60,7 +61,7 @@ impl Backtest {
                         metric.profit = profit;
                         metric.total_profit += profit;
                         trade.exit_price = trade.tp_price;
-                        trade_log(metric, &trade, &kline);
+                        trade_log(&mut metric, &trade, &kline);
                         false
                     } else if kline.low <= trade.sl_price {
                         let profit = (trade.sl_price - trade.entry_price) * trade.position;
@@ -71,7 +72,7 @@ impl Backtest {
                         metric.profit = profit;
                         metric.total_profit += profit;
                         trade.exit_price = trade.sl_price;
-                        trade_log(metric, &trade, &kline);
+                        trade_log(&mut metric, &trade, &kline);
                         false
                     } else {
                         // if trade.tp_price >= trade.entry_price * 1.01 {
@@ -89,7 +90,7 @@ impl Backtest {
                         metric.profit = profit;
                         metric.total_profit += profit;
                         trade.exit_price = trade.tp_price;
-                        trade_log(metric, &trade, &kline);
+                        trade_log(&mut metric, &trade, &kline);
                         false
                     } else if kline.high >= trade.sl_price {
                         let profit = (trade.entry_price - trade.sl_price) * trade.position;
@@ -100,7 +101,7 @@ impl Backtest {
                         metric.profit = profit;
                         metric.total_profit += profit;
                         trade.exit_price = trade.sl_price;
-                        trade_log(metric, &trade, &kline);
+                        trade_log(&mut metric, &trade, &kline);
                         false
                     } else {
                         // if trade.tp_price <= trade.entry_price * 0.99 {
@@ -171,6 +172,7 @@ impl Backtest {
                 }
             }
         }
+        metric
     }
 
     pub fn add_momentum(&mut self, momentum: f64) {
