@@ -114,8 +114,9 @@ impl Backtest {
                 }
             });
 
-            if k_index > self.config.look_back_count {
-                let prev_close = klines[k_index - self.config.look_back_count].close;
+            let look_back = self.config.look_back_count as usize;
+            if k_index > look_back {
+                let prev_close = klines[k_index - look_back].close;
                 let curr_close = klines[k_index].close;
                 let momentum = curr_close - prev_close;
                 self.add_momentum(momentum);
@@ -177,7 +178,7 @@ impl Backtest {
 
     pub fn add_momentum(&mut self, momentum: f64) {
         self.momentum.push_back(momentum);
-        if self.momentum.len() > self.config.look_back_count {
+        if self.momentum.len() > self.config.look_back_count as usize {
             self.momentum.pop_front();
         }
     }

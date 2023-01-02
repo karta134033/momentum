@@ -9,7 +9,7 @@ pub struct BacktestConfig {
     pub initial_captial: f64,
     pub fee_rate: f64,
     pub entry_portion: f64,
-    pub look_back_count: usize,
+    pub look_back_count: f64,
     pub risk_portion: f64,
     pub win_ratio: f64,
 }
