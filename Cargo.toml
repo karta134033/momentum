@@ -12,10 +12,15 @@ chrono = "0.4.23"
 clap = { version = "4.0", features = ["derive"] }
 csv = "1.1.6"
 futures = "0.3"
+hex = "0.4.3"
+hmac = "0.12.1"
 log = "0.4.0"
+log4rs = "1.2.0"
 mongodb = "2.3.1"
+reqwest = "0.11.13"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.90"
+sha2 = "0.10.6"
 simplelog = { version = "^0.11.0", features = ["paris"] }
 # trade_utils = { git = "https://github.com/karta134033/trade_utils.git", branch = "master" }
 trade_utils = { path = "../trade_utils" }

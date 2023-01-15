@@ -19,6 +19,8 @@ pub struct SettingConfig {
     pub from: String,
     pub to: String,
     pub collection: String,
+    pub api_key: String,
+    pub secret_key: String,
 }
 
 #[derive(Parser, Debug)]
