@@ -14,18 +14,5 @@ fn main() {
 
     let client = BinanceFuturesApiClient::new();
     let account = task::block_on(client.get_account(api_key, secret_key)).unwrap();
-    let assets = account["assets"].as_array().unwrap();
-    info!("assets: {:?}", assets);
-    let positions = account["positions"].as_array().unwrap();
-    positions.iter().for_each(|position| {
-        if position["positionAmt"]
-            .as_str()
-            .unwrap()
-            .parse::<f64>()
-            .unwrap()
-            != 0.
-        {
-            info!("position: {:?}", position);
-        }
-    });
+    info!("account: {:#?}", account);
 }
