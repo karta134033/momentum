@@ -2,7 +2,8 @@ use std::fs::File;
 
 use async_std::task;
 use log::info;
-use momentum::{binance::BinanceFuturesApiClient, types::SettingConfig};
+use momentum::types::SettingConfig;
+use trade_utils::clients::binance::api::BinanceFuturesApiClient;
 
 fn main() {
     log4rs::init_file("log4rs.yml", Default::default()).unwrap();

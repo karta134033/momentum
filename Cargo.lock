@@ -2149,10 +2149,14 @@ dependencies = [
  "clap",
  "csv",
  "futures",
+ "hex",
+ "hmac",
  "log",
  "mongodb",
+ "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "simplelog",
 ]
 

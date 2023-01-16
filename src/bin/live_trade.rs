@@ -3,7 +3,7 @@ use std::thread;
 use async_std::task;
 use chrono::Utc;
 use log::info;
-use momentum::binance::BinanceFuturesApiClient;
+use trade_utils::clients::binance::api::BinanceFuturesApiClient;
 use trade_utils::types::timer::FixedUpdate;
 use trade_utils::types::timer::Timer;
 
