@@ -131,7 +131,7 @@ impl Backtest {
                             sl_price_diff = kline.close * self.config.risk_portion;
                         }
                         let sl_price = entry_price - sl_price_diff;
-                        let tp_price = entry_price + self.config.win_ratio * sl_price_diff;
+                        let tp_price = entry_price + self.config.tp_ratio * sl_price_diff;
                         let position = metric.usd_balance * self.config.entry_portion / entry_price;
                         let entry_ts = kline.close_timestamp;
                         let trade = Trade {
@@ -154,7 +154,7 @@ impl Backtest {
                             sl_price_diff = kline.close * self.config.risk_portion;
                         }
                         let sl_price = entry_price + sl_price_diff;
-                        let tp_price = entry_price - self.config.win_ratio * sl_price_diff;
+                        let tp_price = entry_price - self.config.tp_ratio * sl_price_diff;
                         let position = metric.usd_balance * self.config.entry_portion / entry_price;
                         let entry_ts = kline.close_timestamp;
                         let trade = Trade {

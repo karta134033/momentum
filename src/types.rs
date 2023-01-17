@@ -11,7 +11,7 @@ pub struct BacktestConfig {
     pub entry_portion: f64,
     pub look_back_count: f64,
     pub risk_portion: f64,
-    pub win_ratio: f64,
+    pub tp_ratio: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

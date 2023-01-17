@@ -42,7 +42,7 @@ pub fn hypertune(value: &Value, klines: &Vec<Kline>) {
             "total_fee",
             "total_profit",
             "risk_portion",
-            "win_ratio",
+            "tp_ratio",
             "look_back_count",
         ])
         .unwrap();
@@ -60,7 +60,7 @@ pub fn hypertune(value: &Value, klines: &Vec<Kline>) {
         record.push(metric.total_fee.to_string());
         record.push(metric.total_profit.to_string());
         record.push(config.risk_portion.to_string());
-        record.push(config.win_ratio.to_string());
+        record.push(config.tp_ratio.to_string());
         record.push(config.look_back_count.to_string());
         writer.write_record(&record).unwrap();
         writer.flush().unwrap();
