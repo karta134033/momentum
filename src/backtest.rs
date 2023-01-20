@@ -1,6 +1,8 @@
 use chrono::NaiveDateTime;
 use log::{info, warn};
 use std::collections::VecDeque;
+use std::fs::{File, OpenOptions};
+use std::path::Path;
 use trade_utils::types::kline::Kline;
 use trade_utils::types::trade::{Trade, TradeSide};
 
@@ -9,6 +11,7 @@ use crate::types::BacktestConfig;
 pub struct Backtest {
     config: BacktestConfig,
     momentum: VecDeque<f64>,
+    output_result: bool,
 }
 
 #[derive(Default)]
@@ -38,11 +41,43 @@ impl BacktestMetric {
 }
 
 impl Backtest {
-    pub fn new(config: &BacktestConfig) -> Backtest {
-        Backtest {
+    pub fn output_name(&self) -> String {
+        format!(
+            "./backtest_output/{}_{}_{}_backtest_output.csv",
+            self.config.look_back_count, self.config.tp_ratio, self.config.risk_portion
+        )
+    }
+    pub fn new(config: &BacktestConfig, output_result: bool) -> Backtest {
+        let backtest = Backtest {
             config: config.clone(),
             momentum: VecDeque::new(),
+            output_result,
+        };
+        if output_result {
+            let output_name = &backtest.output_name();
+            let output_path = Path::new(output_name);
+            let file = File::create(output_path).unwrap();
+            let mut writer = csv::Writer::from_writer(file);
+            writer
+                .write_record(&[
+                    "datetime",
+                    "initial_captial",
+                    "usd_balance",
+                    "max_usd",
+                    "min_usd",
+                    "win",
+                    "lose",
+                    "win_rate",
+                    "total_fee",
+                    "total_profit",
+                    "risk_portion",
+                    "tp_ratio",
+                    "look_back_count",
+                ])
+                .unwrap();
+            writer.flush().unwrap();
         }
+        backtest
     }
 
     pub fn run(&mut self, klines: &Vec<Kline>) -> BacktestMetric {
@@ -61,7 +96,7 @@ impl Backtest {
                         metric.profit = profit;
                         metric.total_profit += profit;
                         trade.exit_price = kline.close;
-                        trade_log(&mut metric, &trade, &kline);
+                        self.trade_log(&mut metric, &trade, &kline);
                         false
                     } else if kline.close >= trade.tp_price {
                         let profit = (kline.close - trade.entry_price) * trade.position;
@@ -72,7 +107,7 @@ impl Backtest {
                         metric.profit = profit;
                         metric.total_profit += profit;
                         trade.exit_price = kline.close;
-                        trade_log(&mut metric, &trade, &kline);
+                        self.trade_log(&mut metric, &trade, &kline);
                         false
                     } else {
                         // if trade.tp_price >= trade.entry_price * 1.01 {
@@ -90,7 +125,7 @@ impl Backtest {
                         metric.profit = profit;
                         metric.total_profit += profit;
                         trade.exit_price = kline.close;
-                        trade_log(&mut metric, &trade, &kline);
+                        self.trade_log(&mut metric, &trade, &kline);
                         false
                     } else if kline.close <= trade.tp_price {
                         let profit = (trade.entry_price - kline.close) * trade.position;
@@ -101,7 +136,7 @@ impl Backtest {
                         metric.profit = profit;
                         metric.total_profit += profit;
                         trade.exit_price = kline.close;
-                        trade_log(&mut metric, &trade, &kline);
+                        self.trade_log(&mut metric, &trade, &kline);
                         false
                     } else {
                         // if trade.tp_price <= trade.entry_price * 0.99 {
@@ -182,33 +217,59 @@ impl Backtest {
             self.momentum.pop_front();
         }
     }
-}
 
-fn trade_log(metric: &mut BacktestMetric, trade: &Trade, curr_kline: &Kline) {
-    let curr_date = NaiveDateTime::from_timestamp_millis(curr_kline.close_timestamp).unwrap();
-    let entry_date = NaiveDateTime::from_timestamp_millis(trade.entry_ts).unwrap();
-    metric.max_usd = metric.max_usd.max(metric.usd_balance);
-    metric.min_usd = metric.min_usd.min(metric.usd_balance);
-    let mut msg = "".to_string();
-    msg += &format!("date: {:?}, ", curr_date);
-    msg += &format!("win: {:?}, ", metric.win);
-    msg += &format!("lose: {:?}, ", metric.lose);
-    msg += &format!("usd_balance: {:.4}, ", metric.usd_balance);
-    msg += &format!("max_usd: {:.4}, ", metric.max_usd);
-    msg += &format!("min_usd: {:.4}, ", metric.min_usd);
-    msg += &format!("position: {:.4}, ", trade.position);
-    msg += &format!("entry_date: {:?}, ", entry_date);
-    msg += &format!("entry_side: {:?}, ", trade.entry_side);
-    msg += &format!("entry_price: {:.4}, ", trade.entry_price);
-    msg += &format!("tp_price: {:.4}, ", trade.tp_price);
-    msg += &format!("sl_price: {:.4}, ", trade.sl_price);
-    msg += &format!("exit_price: {:.4}, ", trade.exit_price);
-    msg += &format!("profit: {:.4}, ", metric.profit);
-    msg += &format!("fee: {:.4}, ", metric.fee);
+    fn trade_log(&self, metric: &mut BacktestMetric, trade: &Trade, curr_kline: &Kline) {
+        let curr_date = NaiveDateTime::from_timestamp_millis(curr_kline.close_timestamp).unwrap();
+        let entry_date = NaiveDateTime::from_timestamp_millis(trade.entry_ts).unwrap();
+        metric.max_usd = metric.max_usd.max(metric.usd_balance);
+        metric.min_usd = metric.min_usd.min(metric.usd_balance);
+        let mut msg = "".to_string();
+        msg += &format!("date: {:?}, ", curr_date);
+        msg += &format!("win: {:?}, ", metric.win);
+        msg += &format!("lose: {:?}, ", metric.lose);
+        msg += &format!("usd_balance: {:.4}, ", metric.usd_balance);
+        msg += &format!("max_usd: {:.4}, ", metric.max_usd);
+        msg += &format!("min_usd: {:.4}, ", metric.min_usd);
+        msg += &format!("position: {:.4}, ", trade.position);
+        msg += &format!("entry_date: {:?}, ", entry_date);
+        msg += &format!("entry_side: {:?}, ", trade.entry_side);
+        msg += &format!("entry_price: {:.4}, ", trade.entry_price);
+        msg += &format!("tp_price: {:.4}, ", trade.tp_price);
+        msg += &format!("sl_price: {:.4}, ", trade.sl_price);
+        msg += &format!("exit_price: {:.4}, ", trade.exit_price);
+        msg += &format!("profit: {:.4}, ", metric.profit);
+        msg += &format!("fee: {:.4}, ", metric.fee);
 
-    if metric.profit > 0. {
-        info!("{}", msg);
-    } else {
-        warn!("{}", msg);
+        if metric.profit > 0. {
+            info!("{}", msg);
+        } else {
+            warn!("{}", msg);
+        }
+        if self.output_result {
+            let output_name = &self.output_name();
+            let file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .append(true)
+                .open(output_name)
+                .unwrap();
+            let mut writer = csv::Writer::from_writer(file);
+            let mut record = Vec::new();
+            record.push(curr_date.to_string());
+            record.push(metric.initial_captial.to_string());
+            record.push(metric.usd_balance.to_string());
+            record.push(metric.max_usd.to_string());
+            record.push(metric.min_usd.to_string());
+            record.push(metric.win.to_string());
+            record.push(metric.lose.to_string());
+            record.push((metric.win as f64 / (metric.win + metric.lose) as f64).to_string());
+            record.push(metric.total_fee.to_string());
+            record.push(metric.total_profit.to_string());
+            record.push(self.config.risk_portion.to_string());
+            record.push(self.config.tp_ratio.to_string());
+            record.push(self.config.look_back_count.to_string());
+            writer.write_record(&record).unwrap();
+            writer.flush().unwrap();
+        }
     }
 }

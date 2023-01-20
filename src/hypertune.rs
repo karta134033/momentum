@@ -27,7 +27,7 @@ pub fn hypertune(value: &Value, klines: &Vec<Kline>) {
         0,
     );
     info!("tune_fields: {:?}", tune_fields);
-    let output_path = Path::new("output.csv");
+    let output_path = Path::new("hypertune_output.csv");
     let file = File::create(output_path).unwrap();
     let mut writer = csv::Writer::from_writer(file);
     writer
@@ -47,7 +47,7 @@ pub fn hypertune(value: &Value, klines: &Vec<Kline>) {
         ])
         .unwrap();
     backtest_configs.iter().for_each(|config| {
-        let mut backtest = backtest::Backtest::new(config);
+        let mut backtest = backtest::Backtest::new(config, false);
         let metric = backtest.run(klines);
         let mut record = Vec::new();
         record.push(metric.initial_captial.to_string());

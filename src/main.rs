@@ -38,7 +38,7 @@ fn main() {
                 serde_json::from_reader(backtest_config_file).unwrap();
             info!("backtest_config: {:?}", backtest_config);
             info!("klines num: {:?}", klines.len());
-            let mut backtest = Backtest::new(&backtest_config);
+            let mut backtest = Backtest::new(&backtest_config, true);
             backtest.run(&klines);
         }
         Mode::Hypertune => {
