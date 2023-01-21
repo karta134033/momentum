@@ -22,7 +22,9 @@ fn main() {
 
     let instruments_info = task::block_on(client.get_instruments(&symbol_set)).unwrap();
     let instrument_info = instruments_info.get(&symbol).unwrap();
-    let order = Order::market_order(symbol.clone(), OrderSide::Buy, 2.4);
+    info!("instrument_info: {:?}", instrument_info);
+    // let order = Order::market_order(symbol.clone(), OrderSide::Sell, 1.0);
+    let order = Order::unwind_market_order(symbol.clone(), OrderSide::Buy);
     let place_order_res = task::block_on(client.place_order(order, instrument_info)).unwrap();
     info!("place_order_res: {:?}", place_order_res);
 }

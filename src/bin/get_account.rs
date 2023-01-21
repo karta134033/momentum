@@ -15,7 +15,8 @@ fn main() {
     let client = BinanceFuturesApiClient::new(api_key, secret_key);
     loop {
         let account = task::block_on(client.get_account()).unwrap();
-        info!("account: {:#?}", account);
+        let usd_balance = account.get_usd_balance();
+        info!("account: {:#?}, usd_balance: {}", account, usd_balance);
         thread::sleep(std::time::Duration::from_secs(10));
     }
 }

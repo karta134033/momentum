@@ -5,7 +5,7 @@ cargo run --bin momentum -- -b ./backtest_config.json -s ./setting_config.json -
 cargo run --bin momentum -- -t ./hypertune_config.json -s ./setting_config.json -m h
 
 ## Live trade
-cargo run --bin live_trade -- -s ./setting_config.json -m l
+cargo run --bin live_trade -- -b ./backtest_0.058_2.84_8_config.json -s ./setting_config.json -m l
 
 config example:
 setting_config.json
