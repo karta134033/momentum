@@ -44,7 +44,7 @@ impl Backtest {
     pub fn output_name(&self) -> String {
         format!(
             "./backtest_output/{}_{}_{}_backtest_output.csv",
-            self.config.look_back_count, self.config.tp_ratio, self.config.risk_portion
+            self.config.risk_portion, self.config.tp_ratio, self.config.look_back_count
         )
     }
     pub fn new(config: &BacktestConfig, output_result: bool) -> Backtest {

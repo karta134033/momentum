@@ -18,7 +18,8 @@ pub struct BacktestConfig {
 pub struct SettingConfig {
     pub from: String,
     pub to: String,
-    pub collection: String,
+    pub symbol: String,
+    pub collection_postfix: String,
     pub api_key: String,
     pub secret_key: String,
 }

@@ -26,11 +26,8 @@ fn main() {
 
     let setting_config_file = File::open(&args.setting_config.unwrap()).unwrap();
     let setting_config: SettingConfig = serde_json::from_reader(setting_config_file).unwrap();
-    let klines = get_klines_from_db(
-        &setting_config.from,
-        &setting_config.to,
-        &setting_config.collection,
-    );
+    let collection = setting_config.symbol + &setting_config.collection_postfix;
+    let klines = get_klines_from_db(&setting_config.from, &setting_config.to, &collection);
     match args.mode {
         Mode::Backtest => {
             let backtest_config_file = File::open(&args.backtest_config.unwrap()).unwrap();
@@ -46,5 +43,6 @@ fn main() {
             let hypertune_config_value: Value = serde_json::from_reader(config_file).unwrap();
             hypertune(&hypertune_config_value, &klines);
         }
+        _ => {}
     }
 }
