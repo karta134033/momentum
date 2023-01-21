@@ -30,15 +30,15 @@ fn main() {
         use timer
     */
     log4rs::init_file("log4rs.yml", Default::default()).unwrap();
-    let api_client = BinanceFuturesApiClient::new();
     let args = Cli::parse();
     info!("args: {:?}", args);
     let setting_config_file = File::open(&args.setting_config.unwrap()).unwrap();
     let setting_config: SettingConfig = serde_json::from_reader(setting_config_file).unwrap();
+
+    let api_client =
+        BinanceFuturesApiClient::new(setting_config.api_key, setting_config.secret_key);
     let symbol = setting_config.symbol;
-    let account =
-        task::block_on(api_client.get_account(&setting_config.api_key, &setting_config.secret_key))
-            .unwrap();
+    let account = task::block_on(api_client.get_account()).unwrap();
     info!("Current account: {:?}", account);
     // ===== Replay =====
     let start_time = (Utc::now() - chrono::Duration::days(30))
@@ -64,10 +64,7 @@ fn main() {
                 replay_klines.push_back(curr_kline.clone());
                 warn!("kline is crossed: {:?}", replay_klines);
             }
-            let account = task::block_on(
-                api_client.get_account(&setting_config.api_key, &setting_config.secret_key),
-            )
-            .unwrap();
+            let account = task::block_on(api_client.get_account()).unwrap();
             info!("Current account: {:?}", account);
         }
         thread::sleep(std::time::Duration::from_secs(10));
