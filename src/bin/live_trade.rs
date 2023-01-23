@@ -68,7 +68,7 @@ fn main() {
             momentums.push_back(momentum);
         }
     }
-    let mut minute_timer = Timer::new(FixedUpdate::Minute(1));
+    let mut timer = Timer::new(FixedUpdate::Day(1));
     println!("momentums: {:?}", momentums);
 
     let mut trades = Vec::new();
@@ -76,79 +76,52 @@ fn main() {
 
     // ===== Live =====
     loop {
-        if minute_timer.update() {
-            let last_kline = replay_klines.back().unwrap();
+        if timer.update() {
             let curr_kline =
                 task::block_on(api_client.get_klines(&symbol, "1d", None, None, None)).unwrap();
             let curr_kline = curr_kline.last().unwrap();
-            if curr_kline.close_timestamp == last_kline.close_timestamp {
-                println!("kline is not crossed {:?}", curr_kline);
-                update_signals(
-                    curr_kline,
-                    &mut replay_klines,
-                    &mut momentums,
-                    backtest_config.look_back_count,
-                );
-                println!("momentums: {:?}", momentums);
-            } else {
-                update_signals(
-                    curr_kline,
-                    &mut replay_klines,
-                    &mut momentums,
-                    backtest_config.look_back_count,
-                );
-                let curr_kline = replay_klines.back().unwrap().clone();
-                close_trade(
-                    &mut trades,
-                    &curr_kline,
-                    &backtest_config,
-                    &mut metric,
-                    symbol.clone(),
-                    &api_client,
-                );
-                open_trade(
-                    &mut trades,
-                    &curr_kline,
-                    &momentums,
-                    &backtest_config,
-                    symbol.clone(),
-                    &api_client,
-                );
-                // TODO: Log trades to db
+            replay_klines.pop_front();
+            replay_klines.push_back(curr_kline.clone());
+            close_trade(
+                &mut trades,
+                curr_kline,
+                &backtest_config,
+                &mut metric,
+                symbol.clone(),
+                &api_client,
+            );
 
-                replay_klines.pop_front();
-                replay_klines.push_back(curr_kline.clone());
-                momentums.pop_front();
-                momentums.push_back(*momentums.back().unwrap());
-                warn!("kline is crossed: {:?}", replay_klines);
-                info!("momentums: {:?}", momentums);
-            }
+            momentums.pop_front();
+            let index = replay_klines.len() - 1;
+            let prev_close = replay_klines[index - backtest_config.look_back_count].close;
+            let curr_close = replay_klines[index].close;
+            let momentum = curr_close - prev_close;
+            momentums.push_back(momentum);
+            open_trade(
+                &mut trades,
+                curr_kline,
+                &momentums,
+                &backtest_config,
+                symbol.clone(),
+                &api_client,
+            );
+            // TODO: Log trades to db
+            warn!("kline is crossed: {:?}", replay_klines);
+            info!("momentums: {:?}", momentums);
+
+            let account = task::block_on(api_client.get_account()).unwrap();
+            info!("Current account: {:?}", account);
+        } else {
+            thread::sleep(std::time::Duration::from_secs(10));
             let account = task::block_on(api_client.get_account()).unwrap();
             println!("Current account: {:?}", account);
         }
-        thread::sleep(std::time::Duration::from_secs(10));
     }
-}
-
-fn update_signals(
-    curr_kline: &Kline,
-    replay_klines: &mut VecDeque<Kline>,
-    momentums: &mut VecDeque<f64>,
-    look_back_count: usize,
-) {
-    replay_klines.pop_back();
-    replay_klines.push_back(curr_kline.clone());
-    momentums.pop_back();
-    let index = replay_klines.len() - 1;
-    let prev_close = replay_klines[index - look_back_count].close;
-    let curr_close = replay_klines[index].close;
-    let momentum = curr_close - prev_close;
-    momentums.push_back(momentum);
 }
 
 fn open_trade(
     trades: &mut Vec<Trade>,
-    curr_kline: &Kline,
+    kline: &Kline,
     momentums: &VecDeque<f64>,
     config: &BacktestConfig,
     symbol: String,
@@ -166,11 +139,11 @@ fn open_trade(
 
     let now = Utc::now().timestamp_millis();
     if prev_sign == -1. && curr_sign == 1. {
-        let entry_price = curr_kline.close;
+        let entry_price = kline.close;
         let entry_side = TradeSide::Buy;
-        let mut sl_price_diff = f64::abs(curr_kline.close - curr_kline.low);
-        if sl_price_diff / curr_kline.close > config.risk_portion {
-            sl_price_diff = curr_kline.close * config.risk_portion;
+        let mut sl_price_diff = f64::abs(kline.close - kline.low);
+        if sl_price_diff / kline.close > config.risk_portion {
+            sl_price_diff = kline.close * config.risk_portion;
         }
         let sl_price = entry_price - sl_price_diff;
         let tp_price = entry_price + config.tp_ratio * sl_price_diff;
@@ -191,11 +164,11 @@ fn open_trade(
             task::block_on(api_client.place_order(order, instrument_info)).unwrap();
         info!("place_order_res: {:?}", place_order_res);
     } else if prev_sign == 1. && curr_sign == -1. {
-        let entry_price = curr_kline.close;
+        let entry_price = kline.close;
         let entry_side = TradeSide::Sell;
-        let mut sl_price_diff = f64::abs(curr_kline.close - curr_kline.high);
-        if sl_price_diff / curr_kline.close > config.risk_portion {
-            sl_price_diff = curr_kline.close * config.risk_portion;
+        let mut sl_price_diff = f64::abs(kline.close - kline.high);
+        if sl_price_diff / kline.close > config.risk_portion {
+            sl_price_diff = kline.close * config.risk_portion;
         }
         let sl_price = entry_price + sl_price_diff;
         let tp_price = entry_price - config.tp_ratio * sl_price_diff;
