@@ -69,6 +69,7 @@ fn main() {
         }
     }
     let mut timer = Timer::new(FixedUpdate::Day(1));
+    let mut minute_timer = Timer::new(FixedUpdate::Minute(1));
     println!("momentums: {:?}", momentums);
 
     let mut trades = Vec::new();
@@ -111,10 +112,11 @@ fn main() {
 
             let account = task::block_on(api_client.get_account()).unwrap();
             info!("Current account: {:?}", account);
-        } else {
-            thread::sleep(std::time::Duration::from_secs(10));
+        } else if minute_timer.update() {
             let account = task::block_on(api_client.get_account()).unwrap();
             println!("Current account: {:?}", account);
+        } else {
+            thread::sleep(std::time::Duration::from_secs(10));
         }
     }
 }
@@ -216,7 +218,7 @@ fn close_trade(
                 metric.total_profit += profit;
                 trade.exit_price = kline.close;
                 trade_log(metric, trade, &kline);
-                let order = Order::unwind_market_order(symbol.clone(), OrderSide::Sell);
+                let order = Order::market_order(symbol.clone(), OrderSide::Sell, trade.position);
                 let place_order_res =
                     task::block_on(api_client.place_order(order, instrument_info)).unwrap();
                 info!("place_order_res: {:?}", place_order_res);
@@ -231,7 +233,7 @@ fn close_trade(
                 metric.total_profit += profit;
                 trade.exit_price = kline.close;
                 trade_log(metric, trade, &kline);
-                let order = Order::unwind_market_order(symbol.clone(), OrderSide::Sell);
+                let order = Order::market_order(symbol.clone(), OrderSide::Sell, trade.position);
                 let place_order_res =
                     task::block_on(api_client.place_order(order, instrument_info)).unwrap();
                 info!("place_order_res: {:?}", place_order_res);
@@ -250,7 +252,7 @@ fn close_trade(
                 metric.total_profit += profit;
                 trade.exit_price = kline.close;
                 trade_log(metric, trade, &kline);
-                let order = Order::unwind_market_order(symbol.clone(), OrderSide::Buy);
+                let order = Order::market_order(symbol.clone(), OrderSide::Buy, trade.position);
                 let place_order_res =
                     task::block_on(api_client.place_order(order, instrument_info)).unwrap();
                 info!("place_order_res: {:?}", place_order_res);
@@ -265,7 +267,7 @@ fn close_trade(
                 metric.total_profit += profit;
                 trade.exit_price = kline.close;
                 trade_log(metric, trade, &kline);
-                let order = Order::unwind_market_order(symbol.clone(), OrderSide::Buy);
+                let order = Order::market_order(symbol.clone(), OrderSide::Buy, trade.position);
                 let place_order_res =
                     task::block_on(api_client.place_order(order, instrument_info)).unwrap();
                 info!("place_order_res: {:?}", place_order_res);
