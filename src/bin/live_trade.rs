@@ -57,6 +57,8 @@ fn main() {
         task::block_on(api_client.get_klines(&symbol, "1d", Some(start_time.as_str()), None, None))
             .unwrap();
     let mut replay_klines = VecDeque::from(replay_klines_res);
+    replay_klines.pop_back(); // Remove the current tracking one
+
     let backtest_config_file = File::open(&args.backtest_config.unwrap()).unwrap();
     let backtest_config: BacktestConfig = serde_json::from_reader(backtest_config_file).unwrap();
     let mut momentums = VecDeque::new();
@@ -115,6 +117,7 @@ fn main() {
         } else if minute_timer.update() {
             let account = task::block_on(api_client.get_account()).unwrap();
             println!("Current account: {:?}", account);
+            println!("momentums: {:?}", momentums);
         } else {
             thread::sleep(std::time::Duration::from_secs(10));
         }
