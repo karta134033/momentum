@@ -62,9 +62,10 @@ fn main() {
     let backtest_config_file = File::open(&args.backtest_config.unwrap()).unwrap();
     let backtest_config: BacktestConfig = serde_json::from_reader(backtest_config_file).unwrap();
     let mut momentums = VecDeque::new();
+    let look_back_count = backtest_config.look_back_count as usize;
     for index in 0..replay_klines.len() {
-        if index >= backtest_config.look_back_count {
-            let prev_close = replay_klines[index - backtest_config.look_back_count].close;
+        if index >= look_back_count as usize {
+            let prev_close = replay_klines[index - look_back_count].close;
             let curr_close = replay_klines[index].close;
             let momentum = curr_close - prev_close;
             momentums.push_back(momentum);
@@ -96,7 +97,7 @@ fn main() {
 
             momentums.pop_front();
             let index = replay_klines.len() - 1;
-            let prev_close = replay_klines[index - backtest_config.look_back_count].close;
+            let prev_close = replay_klines[index - look_back_count].close;
             let curr_close = replay_klines[index].close;
             let momentum = curr_close - prev_close;
             momentums.push_back(momentum);

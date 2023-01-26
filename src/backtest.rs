@@ -158,7 +158,8 @@ impl Backtest {
                 if self.momentum.len() >= 2 {
                     let prev_sign = self.momentum[self.momentum.len() - 2].signum();
                     let curr_sign = self.momentum[self.momentum.len() - 1].signum();
-                    if prev_sign == -1. && curr_sign == 1. {
+                    let up_trend = klines[k_index].close > klines[k_index].open;
+                    if prev_sign == -1. && curr_sign == 1. && up_trend {
                         let entry_price = kline.close;
                         let entry_side = TradeSide::Buy;
                         let mut sl_price_diff = f64::abs(kline.close - kline.low);
@@ -181,7 +182,7 @@ impl Backtest {
                         trades.push(trade);
                         metric.fee = entry_price * position * self.config.fee_rate;
                         metric.total_fee += metric.fee;
-                    } else if prev_sign == 1. && curr_sign == -1. {
+                    } else if prev_sign == 1. && curr_sign == -1. && !up_trend {
                         let entry_price = kline.close;
                         let entry_side = TradeSide::Sell;
                         let mut sl_price_diff = f64::abs(kline.close - kline.high);
