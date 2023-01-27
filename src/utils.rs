@@ -29,7 +29,7 @@ pub fn get_klines_from_db(from_str: &str, to_str: &str, collection: &str) -> Vec
     klines
 }
 
-pub fn log_trades(trades: Vec<Trade>, version: &str) {
+pub fn log_trades(trades: &Vec<Trade>, version: &str) {
     let mongo_clinet = task::block_on(MongoClient::new(LOCAL_MONGO_CONNECTION_STRING));
     let collection = mongo_clinet
         .client

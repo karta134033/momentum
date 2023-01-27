@@ -13,6 +13,8 @@ use momentum::backtest::BacktestMetric;
 use momentum::types::BacktestConfig;
 use momentum::types::Cli;
 use momentum::types::SettingConfig;
+use momentum::utils::get_trades;
+use momentum::utils::log_trades;
 use trade_utils::clients::binance::api::BinanceFuturesApiClient;
 use trade_utils::types::kline::Kline;
 use trade_utils::types::order::Order;
@@ -23,21 +25,6 @@ use trade_utils::types::trade::Trade;
 use trade_utils::types::trade::TradeSide;
 
 fn main() {
-    /*
-    TODO:
-    1. replay
-    2. cal momentum
-    3. place order
-        instrument_info
-        lot_size
-    4. gen sl_tp orders
-    5. log sl_tp orders to db
-        index db
-        create collection
-    6. get account every minute
-    7. one day after -> check sl_tp -> back to approach 1
-        use timer
-    */
     log4rs::init_file("log4rs.yml", Default::default()).unwrap();
     let args = Cli::parse();
     info!("args: {:?}", args);
@@ -49,6 +36,7 @@ fn main() {
     let symbol = setting_config.symbol;
     let account = task::block_on(api_client.get_account()).unwrap();
     info!("Current account: {:?}", account);
+
     // ===== Replay =====
     let start_time = (Utc::now() - chrono::Duration::days(30))
         .timestamp_millis()
@@ -75,7 +63,11 @@ fn main() {
     let mut minute_timer = Timer::new(FixedUpdate::Minute(1));
     println!("momentums: {:?}", momentums);
 
-    let mut trades = Vec::new();
+    let version = setting_config.version;
+    let mut trades = task::block_on(get_trades(&version));
+    info!("Recover trades {:?} from db", trades);
+    // Close trades if needed
+    // close_trades(..);
     let mut metric = BacktestMetric::new(&backtest_config);
 
     // ===== Live =====
@@ -86,6 +78,14 @@ fn main() {
             let curr_kline = curr_kline.last().unwrap();
             replay_klines.pop_front();
             replay_klines.push_back(curr_kline.clone());
+
+            momentums.pop_front();
+            let index = replay_klines.len() - 1;
+            let prev_close = replay_klines[index - look_back_count].close;
+            let curr_close = replay_klines[index].close;
+            let momentum = curr_close - prev_close;
+            momentums.push_back(momentum);
+
             close_trade(
                 &mut trades,
                 curr_kline,
@@ -94,13 +94,6 @@ fn main() {
                 symbol.clone(),
                 &api_client,
             );
-
-            momentums.pop_front();
-            let index = replay_klines.len() - 1;
-            let prev_close = replay_klines[index - look_back_count].close;
-            let curr_close = replay_klines[index].close;
-            let momentum = curr_close - prev_close;
-            momentums.push_back(momentum);
             open_trade(
                 &mut trades,
                 curr_kline,
@@ -109,12 +102,9 @@ fn main() {
                 symbol.clone(),
                 &api_client,
             );
-            // TODO: Log trades to db
+            log_trades(&trades, &version);
             warn!("kline is crossed: {:?}", replay_klines);
             info!("momentums: {:?}", momentums);
-
-            let account = task::block_on(api_client.get_account()).unwrap();
-            info!("Current account: {:?}", account);
         } else if minute_timer.update() {
             let account = task::block_on(api_client.get_account()).unwrap();
             println!("Current account: {:?}", account);
