@@ -91,6 +91,8 @@ fn main() {
                 println!("Current account: {:?}", account);
                 println!("momentums: {:?}", momentums);
             } else {
+                warn!("kline is crossed: {:?}", replay_klines);
+                info!("momentums: {:?}", momentums);
                 close_trade(
                     &mut trades,
                     last_kline,
@@ -118,8 +120,6 @@ fn main() {
                 momentums.push_back(momentum);
 
                 log_trades(&trades, &version);
-                warn!("kline is crossed: {:?}", replay_klines);
-                info!("momentums: {:?}", momentums);
             }
         } else {
             thread::sleep(std::time::Duration::from_secs(10));
