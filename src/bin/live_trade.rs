@@ -67,35 +67,46 @@ fn main() {
     // Close trades if needed
     // close_trades(..);
     let mut metric = BacktestMetric::new(&backtest_config);
-
+    let cal_momentum = |replay_klines: &VecDeque<Kline>| -> f64 {
+        let index = replay_klines.len() - 1;
+        let prev_close = replay_klines[index - look_back_count].close;
+        let curr_close = replay_klines[index].close;
+        curr_close - prev_close
+    };
     // ===== Live =====
     loop {
         if minute_timer.update() {
-            let curr_kline =
-                task::block_on(api_client.get_klines(&symbol, "1d", None, None, None)).unwrap();
-            let curr_kline = curr_kline.last().unwrap();
-            let last_kline = replay_klines.back().unwrap();
+            let recent_klines =
+                task::block_on(api_client.get_klines(&symbol, "1d", None, None, Some("2")))
+                    .unwrap();
+            let curr_kline = recent_klines.last().unwrap();
+            let last_close_timestamp = replay_klines.back().unwrap().close_timestamp;
 
-            if last_kline.close_timestamp == curr_kline.close_timestamp {
+            if last_close_timestamp == curr_kline.close_timestamp {
                 replay_klines.pop_back(); // Update latest kline
                 replay_klines.push_back(curr_kline.clone());
 
                 momentums.pop_back();
-                let index = replay_klines.len() - 1;
-                let prev_close = replay_klines[index - look_back_count].close;
-                let curr_close = replay_klines[index].close;
-                let momentum = curr_close - prev_close;
+                let momentum = cal_momentum(&replay_klines);
                 momentums.push_back(momentum);
 
                 let account = task::block_on(api_client.get_account()).unwrap();
                 println!("Current account: {:?}", account);
                 println!("momentums: {:?}", momentums);
             } else {
+                let closed_kline = recent_klines.first().unwrap();
+                replay_klines.pop_back(); // Update latest kline
+                replay_klines.push_back(closed_kline.clone());
+
+                momentums.pop_back();
+                let momentum = cal_momentum(&replay_klines);
+                momentums.push_back(momentum);
+
                 warn!("kline is crossed: {:?}", replay_klines);
                 info!("momentums: {:?}", momentums);
                 close_trade(
                     &mut trades,
-                    last_kline,
+                    closed_kline,
                     &backtest_config,
                     &mut metric,
                     symbol.clone(),
@@ -103,7 +114,7 @@ fn main() {
                 );
                 open_trade(
                     &mut trades,
-                    last_kline,
+                    closed_kline,
                     &momentums,
                     &backtest_config,
                     symbol.clone(),
@@ -113,10 +124,7 @@ fn main() {
                 replay_klines.push_back(curr_kline.clone());
 
                 momentums.pop_front();
-                let index = replay_klines.len() - 1;
-                let prev_close = replay_klines[index - look_back_count].close;
-                let curr_close = replay_klines[index].close;
-                let momentum = curr_close - prev_close;
+                let momentum = cal_momentum(&replay_klines);
                 momentums.push_back(momentum);
 
                 log_trades(&trades, &version);
