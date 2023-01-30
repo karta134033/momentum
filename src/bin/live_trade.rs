@@ -73,61 +73,79 @@ fn main() {
         let curr_close = replay_klines[index].close;
         curr_close - prev_close
     };
-    // ===== Live =====
+    let retry_times = 5;
+    let retry_secs = 5; // secs
+                        // ===== Live =====
     loop {
         if minute_timer.update() {
-            let recent_klines =
-                task::block_on(api_client.get_klines(&symbol, "1d", None, None, Some("2")))
-                    .unwrap();
-            let curr_kline = recent_klines.last().unwrap();
-            let last_close_timestamp = replay_klines.back().unwrap().close_timestamp;
+            let mut recent_klines_res =
+                task::block_on(api_client.get_klines(&symbol, "1d", None, None, Some("2")));
+            for _ in 0..retry_times {
+                if recent_klines_res.is_err() {
+                    recent_klines_res =
+                        task::block_on(api_client.get_klines(&symbol, "1d", None, None, Some("2")));
+                    info!("Retry get recent klines");
+                } else {
+                    break;
+                }
+                thread::sleep(std::time::Duration::from_secs(retry_secs));
+            }
+            match recent_klines_res {
+                Ok(recent_klines) => {
+                    let curr_kline = recent_klines.last().unwrap();
+                    let last_close_timestamp = replay_klines.back().unwrap().close_timestamp;
 
-            if last_close_timestamp == curr_kline.close_timestamp {
-                replay_klines.pop_back(); // Update latest kline
-                replay_klines.push_back(curr_kline.clone());
+                    if last_close_timestamp == curr_kline.close_timestamp {
+                        replay_klines.pop_back(); // Update latest kline
+                        replay_klines.push_back(curr_kline.clone());
 
-                momentums.pop_back();
-                let momentum = cal_momentum(&replay_klines);
-                momentums.push_back(momentum);
+                        momentums.pop_back();
+                        let momentum = cal_momentum(&replay_klines);
+                        momentums.push_back(momentum);
 
-                let account = task::block_on(api_client.get_account()).unwrap();
-                println!("Current account: {:?}", account);
-                println!("momentums: {:?}", momentums);
-            } else {
-                let closed_kline = recent_klines.first().unwrap();
-                replay_klines.pop_back(); // Update latest kline
-                replay_klines.push_back(closed_kline.clone());
+                        let account = task::block_on(api_client.get_account()).unwrap();
+                        println!("Current account: {:?}", account);
+                        println!("momentums: {:?}", momentums);
+                    } else {
+                        let closed_kline = recent_klines.first().unwrap();
+                        replay_klines.pop_back(); // Update latest kline
+                        replay_klines.push_back(closed_kline.clone());
 
-                momentums.pop_back();
-                let momentum = cal_momentum(&replay_klines);
-                momentums.push_back(momentum);
+                        momentums.pop_back();
+                        let momentum = cal_momentum(&replay_klines);
+                        momentums.push_back(momentum);
 
-                warn!("kline is crossed: {:?}", replay_klines);
-                info!("momentums: {:?}", momentums);
-                close_trade(
-                    &mut trades,
-                    closed_kline,
-                    &backtest_config,
-                    &mut metric,
-                    symbol.clone(),
-                    &api_client,
-                );
-                open_trade(
-                    &mut trades,
-                    closed_kline,
-                    &momentums,
-                    &backtest_config,
-                    symbol.clone(),
-                    &api_client,
-                );
-                replay_klines.pop_front();
-                replay_klines.push_back(curr_kline.clone());
+                        warn!("kline is crossed: {:?}", replay_klines);
+                        info!("momentums: {:?}", momentums);
+                        close_trade(
+                            &mut trades,
+                            closed_kline,
+                            &backtest_config,
+                            &mut metric,
+                            symbol.clone(),
+                            &api_client,
+                        );
+                        open_trade(
+                            &mut trades,
+                            closed_kline,
+                            &momentums,
+                            &backtest_config,
+                            symbol.clone(),
+                            &api_client,
+                        );
+                        replay_klines.pop_front();
+                        replay_klines.push_back(curr_kline.clone());
 
-                momentums.pop_front();
-                let momentum = cal_momentum(&replay_klines);
-                momentums.push_back(momentum);
+                        momentums.pop_front();
+                        let momentum = cal_momentum(&replay_klines);
+                        momentums.push_back(momentum);
 
-                log_trades(&trades, &version);
+                        log_trades(&trades, &version);
+                    }
+                }
+                Err(err) => {
+                    warn!("Get recent kline error, {:?}", err);
+                }
             }
         } else {
             thread::sleep(std::time::Duration::from_secs(10));
