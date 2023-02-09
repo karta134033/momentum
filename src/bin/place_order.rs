@@ -1,10 +1,10 @@
-use std::{collections::HashSet, fs::File};
+use std::fs::File;
 
 use async_std::task;
 use log::info;
 use momentum::types::SettingConfig;
 use trade_utils::{
-    clients::binance::api::BinanceFuturesApiClient,
+    clients::binance::api::{BinanceFuturesApiClient, SYMBOL_TO_INSTRUMENT_INFO},
     types::order::{Order, OrderSide},
 };
 
@@ -17,14 +17,10 @@ fn main() {
 
     let client = BinanceFuturesApiClient::new(api_key, secret_key);
     let symbol = "AVAXUSDT".to_owned();
-    let mut symbol_set = HashSet::new();
-    symbol_set.insert(symbol.clone());
 
-    let instruments_info = task::block_on(client.get_instruments(&symbol_set)).unwrap();
-    let instrument_info = instruments_info.get(&symbol).unwrap();
+    let instrument_info = SYMBOL_TO_INSTRUMENT_INFO.get(&symbol).unwrap();
     info!("instrument_info: {:?}", instrument_info);
-    // let order = Order::market_order(symbol.clone(), OrderSide::Sell, 1.0);
-    let order = Order::unwind_market_order(symbol.clone(), OrderSide::Buy);
+    let order = Order::market_order(symbol.clone(), OrderSide::Sell, 1.0);
     let place_order_res = task::block_on(client.place_order(order, instrument_info)).unwrap();
     info!("place_order_res: {:?}", place_order_res);
 }

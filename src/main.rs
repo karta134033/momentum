@@ -26,6 +26,7 @@ fn main() {
 
     let setting_config_file = File::open(&args.setting_config.unwrap()).unwrap();
     let setting_config: SettingConfig = serde_json::from_reader(setting_config_file).unwrap();
+    let symbol = setting_config.symbol.clone();
     let collection = setting_config.symbol + &setting_config.collection_postfix;
     let klines = get_klines_from_db(&setting_config.from, &setting_config.to, &collection);
     match args.mode {
@@ -36,12 +37,12 @@ fn main() {
             info!("backtest_config: {:?}", backtest_config);
             info!("klines num: {:?}", klines.len());
             let mut backtest = Backtest::new(&backtest_config, true);
-            backtest.run(&klines);
+            backtest.run(&klines, symbol.clone());
         }
         Mode::Hypertune => {
             let config_file = File::open(&args.hypertune_config.unwrap()).unwrap();
             let hypertune_config_value: Value = serde_json::from_reader(config_file).unwrap();
-            hypertune(&hypertune_config_value, &klines);
+            hypertune(&hypertune_config_value, &klines, symbol.clone());
         }
         _ => {}
     }

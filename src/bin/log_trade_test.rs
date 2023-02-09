@@ -7,6 +7,7 @@ fn main() {
     log4rs::init_file("log4rs.yml", Default::default()).unwrap();
     let version = "test";
     let trades = vec![Trade {
+        symbol: "AVAXUSDT".to_owned(),
         entry_price: 1.0,
         entry_side: TradeSide::Buy,
         entry_ts: 1,

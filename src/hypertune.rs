@@ -6,7 +6,7 @@ use trade_utils::types::kline::Kline;
 
 use crate::{backtest, types::BacktestConfig};
 
-pub fn hypertune(value: &Value, klines: &Vec<Kline>) {
+pub fn hypertune(value: &Value, klines: &Vec<Kline>, symbol: String) {
     let raw_config = value.as_object().unwrap();
     let mut backtest_configs: Vec<BacktestConfig> = Vec::new();
     let mut backtest_config_value = json!({});
@@ -48,7 +48,7 @@ pub fn hypertune(value: &Value, klines: &Vec<Kline>) {
         .unwrap();
     backtest_configs.iter().for_each(|config| {
         let mut backtest = backtest::Backtest::new(config, false);
-        let metric = backtest.run(klines);
+        let metric = backtest.run(klines, symbol.clone());
         let mut record = Vec::new();
         record.push(metric.initial_captial.to_string());
         record.push(metric.usd_balance.to_string());
