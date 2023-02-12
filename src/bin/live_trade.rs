@@ -123,7 +123,7 @@ fn main() {
                             true,
                             output_trade_log_name,
                             &closed_kline,
-                            None,
+                            Some(&api_client),
                         );
                         open_trade(
                             symbol.clone(),
@@ -134,7 +134,7 @@ fn main() {
                             true,
                             output_trade_log_name,
                             &closed_kline,
-                            None,
+                            Some(&api_client),
                         );
                         replay_klines.pop_front();
                         replay_klines.push_back(curr_kline.clone());
