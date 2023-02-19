@@ -44,6 +44,7 @@ pub fn hypertune(value: &Value, klines: &Vec<Kline>, symbol: String) {
             "risk_portion",
             "tp_ratio",
             "look_back_count",
+            "momentum_pct",
         ])
         .unwrap();
     backtest_configs.iter().for_each(|config| {
@@ -62,6 +63,7 @@ pub fn hypertune(value: &Value, klines: &Vec<Kline>, symbol: String) {
         record.push(config.risk_portion.to_string());
         record.push(config.tp_ratio.to_string());
         record.push(config.look_back_count.to_string());
+        record.push(config.momentum_pct.to_string());
         writer.write_record(&record).unwrap();
         writer.flush().unwrap();
     });

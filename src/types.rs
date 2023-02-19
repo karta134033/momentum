@@ -12,6 +12,7 @@ pub struct BacktestConfig {
     pub look_back_count: f64, // f64 is for hypertune
     pub risk_portion: f64,
     pub tp_ratio: f64,
+    pub momentum_pct: f64,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
