@@ -46,20 +46,62 @@ pub fn place_order(
     }
 }
 
+pub fn close_trade(
+    metric: &mut BacktestMetric,
+    config: &BacktestConfig,
+    trades: &mut Vec<Trade>,
+    closed_klines: &VecDeque<Kline>,
+    output_trade_log: bool,
+    output_trade_log_name: &str,
+    api_client_opt: Option<&BinanceFuturesApiClient>,
+    trade_side: TradeSide,
+) {
+    let kline = closed_klines.back().unwrap();
+    trades.retain_mut(|trade: &mut Trade| {
+        if trade.entry_side == trade_side {
+            let profit = (kline.close - trade.entry_price) * trade.position * trade_side.value();
+            metric.usd_balance += profit;
+            metric.fee = kline.close * trade.position * config.fee_rate;
+            metric.total_fee += metric.fee;
+            metric.profit = profit;
+            metric.total_profit += profit;
+            trade.exit_price = kline.close;
+            error!("Early exit buy");
+            trade_log(
+                metric,
+                config,
+                output_trade_log,
+                output_trade_log_name,
+                kline,
+                trade,
+            );
+            place_order(trade.symbol.clone(), api_client_opt, &trade, true);
+            false
+        } else {
+            true
+        }
+    });
+}
+
 pub fn open_trade(
     symbol: String,
     metric: &mut BacktestMetric,
     config: &BacktestConfig,
     trades: &mut Vec<Trade>,
-    momentum: &VecDeque<f64>,
+    closed_klines: &VecDeque<Kline>,
     output_trade_log: bool,
     output_trade_log_name: &str,
-    kline: &Kline,
     api_client_opt: Option<&BinanceFuturesApiClient>,
 ) {
-    let prev_close = momentum[momentum.len() - 2];
-    let curr_close = momentum[momentum.len() - 1];
-    let momentum_pct = curr_close / prev_close - 1.;
+    let prev_l_close =
+        closed_klines[closed_klines.len() - 1 - 1 - config.look_back_count as usize].close;
+    let prev_r_close = closed_klines[closed_klines.len() - 1 - 1].close;
+    let curr_l_close =
+        closed_klines[closed_klines.len() - 1 - config.look_back_count as usize].close;
+    let curr_r_close = closed_klines[closed_klines.len() - 1].close;
+    let momentum_pct_prev = prev_r_close / prev_l_close - 1.;
+    let momentum_pct_curr = curr_r_close / curr_l_close - 1.;
+    let kline = closed_klines.back().unwrap();
     let uptrend = kline.close > kline.open;
 
     if let Some(api_client) = api_client_opt {
@@ -68,63 +110,40 @@ pub fn open_trade(
         metric.usd_balance = usd_balance;
     }
 
-    if momentum_pct <= config.momentum_pct && !uptrend {
+    if momentum_pct_prev >= config.momentum_pct && momentum_pct_curr <= config.momentum_pct {
         // Close buy trades
-        trades.retain_mut(|trade: &mut Trade| {
-            if trade.entry_side == TradeSide::Buy {
-                let profit = (kline.close - trade.entry_price) * trade.position;
-                metric.usd_balance += profit;
-                metric.fee = kline.close * trade.position * config.fee_rate;
-                metric.total_fee += metric.fee;
-                metric.profit = profit;
-                metric.total_profit += profit;
-                trade.exit_price = kline.close;
-                error!("Early exit buy");
-                trade_log(
-                    metric,
-                    config,
-                    output_trade_log,
-                    output_trade_log_name,
-                    kline,
-                    trade,
-                );
-                place_order(trade.symbol.clone(), api_client_opt, &trade, true);
-                false
-            } else {
-                true
-            }
-        });
+        close_trade(
+            metric,
+            config,
+            trades,
+            closed_klines,
+            output_trade_log,
+            output_trade_log_name,
+            api_client_opt,
+            TradeSide::Buy,
+        )
     }
 
-    if momentum_pct >= config.momentum_pct * -1. && uptrend {
+    if momentum_pct_prev <= config.momentum_pct * -1.
+        && momentum_pct_curr >= config.momentum_pct * -1.
+    {
         // Close sell trades
-        trades.retain_mut(|trade: &mut Trade| {
-            if trade.entry_side == TradeSide::Sell {
-                let profit = (trade.entry_price - kline.close) * trade.position;
-                metric.usd_balance += profit;
-                metric.fee = kline.close * trade.position * config.fee_rate;
-                metric.total_fee += metric.fee;
-                metric.profit = profit;
-                metric.total_profit += profit;
-                trade.exit_price = kline.close;
-                error!("Early exit sell");
-                trade_log(
-                    metric,
-                    config,
-                    output_trade_log,
-                    output_trade_log_name,
-                    kline,
-                    trade,
-                );
-                place_order(trade.symbol.clone(), api_client_opt, trade, true);
-                false
-            } else {
-                true
-            }
-        });
+        close_trade(
+            metric,
+            config,
+            trades,
+            closed_klines,
+            output_trade_log,
+            output_trade_log_name,
+            api_client_opt,
+            TradeSide::Sell,
+        )
     }
 
-    if momentum_pct >= config.momentum_pct && uptrend {
+    if momentum_pct_prev <= config.momentum_pct
+        && momentum_pct_curr >= config.momentum_pct
+        && uptrend
+    {
         let entry_price = kline.close;
         let entry_side = TradeSide::Buy;
         let mut sl_price_diff = f64::abs(kline.close - kline.low);
@@ -149,7 +168,10 @@ pub fn open_trade(
         trades.push(trade);
         metric.fee = entry_price * position * config.fee_rate;
         metric.total_fee += metric.fee;
-    } else if momentum_pct <= config.momentum_pct * -1. && !uptrend {
+    } else if momentum_pct_prev >= config.momentum_pct * -1.
+        && momentum_pct_curr <= config.momentum_pct * -1.
+        && !uptrend
+    {
         let entry_price = kline.close;
         let entry_side = TradeSide::Sell;
         let mut sl_price_diff = f64::abs(kline.close - kline.high);

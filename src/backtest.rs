@@ -1,7 +1,5 @@
-use chrono::NaiveDateTime;
-use log::*;
 use std::collections::VecDeque;
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::path::Path;
 use trade_utils::types::kline::Kline;
 use trade_utils::types::trade::Trade;
@@ -11,7 +9,7 @@ use crate::types::BacktestConfig;
 
 pub struct Backtest {
     config: BacktestConfig,
-    momentum: VecDeque<f64>,
+    closed_klines: VecDeque<Kline>,
     output_result: bool,
 }
 
@@ -51,7 +49,7 @@ impl Backtest {
     pub fn new(config: &BacktestConfig, output_result: bool) -> Backtest {
         let backtest = Backtest {
             config: config.clone(),
-            momentum: VecDeque::new(),
+            closed_klines: VecDeque::new(),
             output_result,
         };
         if output_result {
@@ -100,93 +98,21 @@ impl Backtest {
             );
 
             let look_back = self.config.look_back_count as usize;
-            if k_index > look_back {
-                let prev_close = klines[k_index - look_back].close;
-                let curr_close = klines[k_index].close;
-                let momentum = curr_close - prev_close;
-                self.add_momentum(momentum);
-
-                if self.momentum.len() >= 2 {
-                    open_trade(
-                        symbol.clone(),
-                        &mut metric,
-                        &mut self.config,
-                        &mut trades,
-                        &self.momentum,
-                        self.output_result,
-                        &output_trade_log_name,
-                        &kline,
-                        None,
-                    );
-                }
+            self.closed_klines.push_back(klines[k_index].clone());
+            if k_index > look_back + 3 {
+                self.closed_klines.pop_front();
+                open_trade(
+                    symbol.clone(),
+                    &mut metric,
+                    &mut self.config,
+                    &mut trades,
+                    &self.closed_klines,
+                    self.output_result,
+                    &output_trade_log_name,
+                    None,
+                );
             }
         }
         metric
-    }
-
-    pub fn add_momentum(&mut self, momentum: f64) {
-        self.momentum.push_back(momentum);
-        if self.momentum.len() > self.config.look_back_count as usize {
-            self.momentum.pop_front();
-        }
-    }
-
-    pub fn trade_log(&self, metric: &mut BacktestMetric, trade: &Trade, curr_kline: &Kline) {
-        let curr_date = NaiveDateTime::from_timestamp_millis(curr_kline.close_timestamp).unwrap();
-        let entry_date = NaiveDateTime::from_timestamp_millis(trade.entry_ts).unwrap();
-        metric.max_usd = metric.max_usd.max(metric.usd_balance);
-        metric.min_usd = metric.min_usd.min(metric.usd_balance);
-        let mut msg = "".to_string();
-        msg += &format!("date: {:?}, ", curr_date);
-        msg += &format!("usd_balance: {:.4}, ", metric.usd_balance);
-        msg += &format!("max_usd: {:.4}, ", metric.max_usd);
-        msg += &format!("min_usd: {:.4}, ", metric.min_usd);
-        msg += &format!("position: {:.4}, ", trade.position);
-        msg += &format!("entry_date: {:?}, ", entry_date);
-        msg += &format!("entry_side: {:?}, ", trade.entry_side);
-        msg += &format!("entry_price: {:.4}, ", trade.entry_price);
-        msg += &format!("tp_price: {:.4}, ", trade.tp_price);
-        msg += &format!("sl_price: {:.4}, ", trade.sl_price);
-        msg += &format!("exit_price: {:.4}, ", trade.exit_price);
-        msg += &format!("profit: {:.4}, ", metric.profit);
-        msg += &format!("fee: {:.4}, ", metric.fee);
-
-        if metric.profit > 0. {
-            metric.win += 1;
-            msg += &format!("win: {:?}, ", metric.win);
-            msg += &format!("lose: {:?}, ", metric.lose);
-            info!("{}", msg);
-        } else {
-            metric.lose += 1;
-            msg += &format!("win: {:?}, ", metric.win);
-            msg += &format!("lose: {:?}, ", metric.lose);
-            warn!("{}", msg);
-        }
-        if self.output_result {
-            let output_name = &self.output_name();
-            let file = OpenOptions::new()
-                .write(true)
-                .create(true)
-                .append(true)
-                .open(output_name)
-                .unwrap();
-            let mut writer = csv::Writer::from_writer(file);
-            let mut record = Vec::new();
-            record.push(curr_date.to_string());
-            record.push(metric.initial_captial.to_string());
-            record.push(metric.usd_balance.to_string());
-            record.push(metric.max_usd.to_string());
-            record.push(metric.min_usd.to_string());
-            record.push(metric.win.to_string());
-            record.push(metric.lose.to_string());
-            record.push((metric.win as f64 / (metric.win + metric.lose) as f64).to_string());
-            record.push(metric.total_fee.to_string());
-            record.push(metric.total_profit.to_string());
-            record.push(self.config.risk_portion.to_string());
-            record.push(self.config.tp_ratio.to_string());
-            record.push(self.config.look_back_count.to_string());
-            writer.write_record(&record).unwrap();
-            writer.flush().unwrap();
-        }
     }
 }

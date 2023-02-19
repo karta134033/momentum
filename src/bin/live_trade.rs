@@ -16,7 +16,6 @@ use momentum::types::SettingConfig;
 use momentum::utils::get_trades;
 use momentum::utils::log_trades;
 use trade_utils::clients::binance::api::BinanceFuturesApiClient;
-use trade_utils::types::kline::Kline;
 
 use trade_utils::types::timer::FixedUpdate;
 use trade_utils::types::timer::Timer;
@@ -45,18 +44,8 @@ fn main() {
 
     let backtest_config_file = File::open(&args.backtest_config.unwrap()).unwrap();
     let backtest_config: BacktestConfig = serde_json::from_reader(backtest_config_file).unwrap();
-    let mut momentums = VecDeque::new();
-    let look_back_count = backtest_config.look_back_count as usize;
-    for index in 0..replay_klines.len() {
-        if index >= look_back_count as usize {
-            let prev_close = replay_klines[index - look_back_count].close;
-            let curr_close = replay_klines[index].close;
-            let momentum = curr_close - prev_close;
-            momentums.push_back(momentum);
-        }
-    }
+
     let mut minute_timer = Timer::new(FixedUpdate::Minute(1));
-    println!("momentums: {:?}", momentums);
 
     let version = setting_config.version;
     let mut trades = task::block_on(get_trades(&version));
@@ -64,12 +53,7 @@ fn main() {
     // Close trades if needed
     // close_trades(..);
     let mut metric = BacktestMetric::new(&backtest_config);
-    let cal_momentum = |replay_klines: &VecDeque<Kline>| -> f64 {
-        let index = replay_klines.len() - 1;
-        let prev_close = replay_klines[index - look_back_count].close;
-        let curr_close = replay_klines[index].close;
-        curr_close - prev_close
-    };
+
     let retry_times = 5;
     let retry_secs = 5; // secs
 
@@ -95,27 +79,14 @@ fn main() {
                     let last_close_timestamp = replay_klines.back().unwrap().close_timestamp;
 
                     if last_close_timestamp == curr_kline.close_timestamp {
-                        replay_klines.pop_back(); // Update latest kline
-                        replay_klines.push_back(curr_kline.clone());
-
-                        momentums.pop_back();
-                        let momentum = cal_momentum(&replay_klines);
-                        momentums.push_back(momentum);
-
                         let account = task::block_on(api_client.get_account()).unwrap();
                         println!("Current account: {:?}", account);
-                        println!("momentums: {:?}", momentums);
                     } else {
                         let closed_kline = recent_klines.first().unwrap();
                         replay_klines.pop_back(); // Update latest kline
                         replay_klines.push_back(closed_kline.clone());
 
-                        momentums.pop_back();
-                        let momentum = cal_momentum(&replay_klines);
-                        momentums.push_back(momentum);
-
                         warn!("kline is crossed: {:?}", replay_klines);
-                        info!("momentums: {:?}", momentums);
                         sl_tp_exit(
                             &mut metric,
                             &backtest_config,
@@ -130,18 +101,13 @@ fn main() {
                             &mut metric,
                             &backtest_config,
                             &mut trades,
-                            &momentums,
+                            &replay_klines,
                             true,
                             output_trade_log_name,
-                            &closed_kline,
                             Some(&api_client),
                         );
                         replay_klines.pop_front();
                         replay_klines.push_back(curr_kline.clone());
-
-                        momentums.pop_front();
-                        let momentum = cal_momentum(&replay_klines);
-                        momentums.push_back(momentum);
 
                         log_trades(&trades, &version);
                     }

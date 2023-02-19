@@ -1,3 +1,4 @@
+use rand::seq::SliceRandom;
 use std::{fs::File, path::Path};
 
 use log::info;
@@ -47,6 +48,14 @@ pub fn hypertune(value: &Value, klines: &Vec<Kline>, symbol: String) {
             "momentum_pct",
         ])
         .unwrap();
+
+    let num_to_pick = 30000;
+    let mut rng = rand::thread_rng();
+    backtest_configs.shuffle(&mut rng); // shuffle the vector randomly
+    let backtest_configs = backtest_configs
+        .into_iter()
+        .take(num_to_pick)
+        .collect::<Vec<_>>();
     backtest_configs.iter().for_each(|config| {
         let mut backtest = backtest::Backtest::new(config, false);
         let metric = backtest.run(klines, symbol.clone());
