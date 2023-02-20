@@ -89,6 +89,64 @@ pub fn open_trade(
     config: &BacktestConfig,
     trades: &mut Vec<Trade>,
     closed_klines: &VecDeque<Kline>,
+    api_client_opt: Option<&BinanceFuturesApiClient>,
+    entry_side: TradeSide,
+) {
+    if entry_side == TradeSide::None {
+        return;
+    }
+    let kline = closed_klines.back().unwrap();
+    let entry_price = kline.close;
+
+    let mut sl_price_diff;
+    let sl_price;
+    let tp_price;
+    match entry_side {
+        TradeSide::Sell => {
+            sl_price_diff = f64::abs(kline.close - kline.high);
+            if sl_price_diff / kline.close > config.risk_portion {
+                sl_price_diff = kline.close * config.risk_portion;
+            }
+            sl_price = entry_price + sl_price_diff;
+            tp_price = entry_price - config.tp_ratio * sl_price_diff
+        }
+        TradeSide::Buy => {
+            sl_price_diff = f64::abs(kline.close - kline.low);
+            if sl_price_diff / kline.close > config.risk_portion {
+                sl_price_diff = kline.close * config.risk_portion;
+            }
+            sl_price = entry_price - sl_price_diff;
+            tp_price = entry_price + config.tp_ratio * sl_price_diff;
+        }
+        TradeSide::None => {
+            panic!("Unsupport open_trade type")
+        }
+    }
+
+    let position = metric.usd_balance * config.entry_portion / entry_price;
+    let entry_ts = kline.close_timestamp;
+    let trade = Trade {
+        symbol: symbol.clone(),
+        entry_price,
+        entry_side,
+        entry_ts,
+        tp_price,
+        sl_price,
+        position,
+        exit_price: -1.,
+    };
+    place_order(trade.symbol.clone(), api_client_opt, &trade, false);
+    trades.push(trade);
+    metric.fee = entry_price * position * config.fee_rate;
+    metric.total_fee += metric.fee;
+}
+
+pub fn pct_strategy(
+    symbol: String,
+    metric: &mut BacktestMetric,
+    config: &BacktestConfig,
+    trades: &mut Vec<Trade>,
+    closed_klines: &VecDeque<Kline>,
     output_trade_log: bool,
     output_trade_log_name: &str,
     api_client_opt: Option<&BinanceFuturesApiClient>,
@@ -144,58 +202,28 @@ pub fn open_trade(
         && momentum_pct_curr >= config.momentum_pct
         && uptrend
     {
-        let entry_price = kline.close;
-        let entry_side = TradeSide::Buy;
-        let mut sl_price_diff = f64::abs(kline.close - kline.low);
-        if sl_price_diff / kline.close > config.risk_portion {
-            sl_price_diff = kline.close * config.risk_portion;
-        }
-        let sl_price = entry_price - sl_price_diff;
-        let tp_price = entry_price + config.tp_ratio * sl_price_diff;
-        let position = metric.usd_balance * config.entry_portion / entry_price;
-        let entry_ts = kline.close_timestamp;
-        let trade = Trade {
-            symbol: symbol.clone(),
-            entry_price,
-            entry_side,
-            entry_ts,
-            tp_price,
-            sl_price,
-            position,
-            exit_price: -1.,
-        };
-        place_order(trade.symbol.clone(), api_client_opt, &trade, false);
-        trades.push(trade);
-        metric.fee = entry_price * position * config.fee_rate;
-        metric.total_fee += metric.fee;
+        open_trade(
+            symbol,
+            metric,
+            config,
+            trades,
+            closed_klines,
+            api_client_opt,
+            TradeSide::Buy,
+        );
     } else if momentum_pct_prev >= config.momentum_pct * -1.
         && momentum_pct_curr <= config.momentum_pct * -1.
         && !uptrend
     {
-        let entry_price = kline.close;
-        let entry_side = TradeSide::Sell;
-        let mut sl_price_diff = f64::abs(kline.close - kline.high);
-        if sl_price_diff / kline.close > config.risk_portion {
-            sl_price_diff = kline.close * config.risk_portion;
-        }
-        let sl_price = entry_price + sl_price_diff;
-        let tp_price = entry_price - config.tp_ratio * sl_price_diff;
-        let position = metric.usd_balance * config.entry_portion / entry_price;
-        let entry_ts = kline.close_timestamp;
-        let trade = Trade {
-            symbol: symbol.clone(),
-            entry_price,
-            entry_side,
-            entry_ts,
-            tp_price,
-            sl_price,
-            position,
-            exit_price: -1.,
-        };
-        place_order(trade.symbol.clone(), api_client_opt, &trade, false);
-        trades.push(trade);
-        metric.fee = entry_price * position * config.fee_rate;
-        metric.total_fee += metric.fee;
+        open_trade(
+            symbol,
+            metric,
+            config,
+            trades,
+            closed_klines,
+            api_client_opt,
+            TradeSide::Sell,
+        );
     }
 }
 

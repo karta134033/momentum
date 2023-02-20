@@ -8,8 +8,7 @@ use clap::Parser;
 use log::info;
 use log::warn;
 use momentum::backtest::BacktestMetric;
-use momentum::strategy::open_trade;
-use momentum::strategy::sl_tp_exit;
+use momentum::strategy::*;
 use momentum::types::BacktestConfig;
 use momentum::types::Cli;
 use momentum::types::SettingConfig;
@@ -96,7 +95,7 @@ fn main() {
                             &closed_kline,
                             Some(&api_client),
                         );
-                        open_trade(
+                        pct_strategy(
                             symbol.clone(),
                             &mut metric,
                             &backtest_config,

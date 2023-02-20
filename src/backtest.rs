@@ -4,7 +4,7 @@ use std::path::Path;
 use trade_utils::types::kline::Kline;
 use trade_utils::types::trade::Trade;
 
-use crate::strategy::{open_trade, sl_tp_exit};
+use crate::strategy::{pct_strategy, sl_tp_exit};
 use crate::types::BacktestConfig;
 
 pub struct Backtest {
@@ -101,7 +101,7 @@ impl Backtest {
             self.closed_klines.push_back(klines[k_index].clone());
             if k_index > look_back + 3 {
                 self.closed_klines.pop_front();
-                open_trade(
+                pct_strategy(
                     symbol.clone(),
                     &mut metric,
                     &mut self.config,
