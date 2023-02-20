@@ -1184,6 +1184,7 @@ dependencies = [
  "log",
  "log4rs",
  "mongodb",
+ "rand",
  "reqwest",
  "serde",
  "serde_json",

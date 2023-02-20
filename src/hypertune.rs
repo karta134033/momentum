@@ -56,6 +56,7 @@ pub fn hypertune(value: &Value, klines: &Vec<Kline>, symbol: String) {
         .into_iter()
         .take(num_to_pick)
         .collect::<Vec<_>>();
+
     backtest_configs.iter().for_each(|config| {
         let mut backtest = backtest::Backtest::new(config, false);
         let metric = backtest.run(klines, symbol.clone());
