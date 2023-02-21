@@ -1,5 +1,6 @@
 ## Backtest
 cargo run --bin momentum -- -b ./backtest_config.json -s ./backtest_setting_config.json -m b
+cargo run --bin momentum -- -b ./backtest_4h_config.json -s ./backtest_setting_4h_config.json -m b
 
 ## Hypertune
 cargo run --bin momentum -- -t ./hypertune_config.json -s ./hypertune_setting_config.json -m h
