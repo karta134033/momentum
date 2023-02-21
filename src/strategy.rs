@@ -160,11 +160,15 @@ pub fn pct_strategy(
     let momentum_pct_prev = prev_r_close / prev_l_close - 1.;
     let momentum_pct_curr = curr_r_close / curr_l_close - 1.;
     let kline = closed_klines.back().unwrap();
-    let uptrend = kline.close > kline.open;
+    let _uptrend = kline.close > kline.open;
 
     if let Some(api_client) = api_client_opt {
         let account = task::block_on(api_client.get_account()).unwrap();
         let usd_balance = account.get_usd_balance(); // Correct the usd_balance during live trade
+        info!(
+            "momentum_pct_prev: {}, momentum_pct_curr: {}",
+            momentum_pct_prev, momentum_pct_curr
+        );
         metric.usd_balance = usd_balance;
     }
 
@@ -179,7 +183,7 @@ pub fn pct_strategy(
             output_trade_log_name,
             api_client_opt,
             TradeSide::Buy,
-        )
+        );
     }
 
     if momentum_pct_prev <= config.momentum_pct * -1.
@@ -195,13 +199,21 @@ pub fn pct_strategy(
             output_trade_log_name,
             api_client_opt,
             TradeSide::Sell,
-        )
+        );
     }
 
-    if momentum_pct_prev <= config.momentum_pct
-        && momentum_pct_curr >= config.momentum_pct
-        && uptrend
-    {
+    if momentum_pct_prev <= config.momentum_pct && momentum_pct_curr >= config.momentum_pct {
+        // Close sell trades
+        close_trade(
+            metric,
+            config,
+            trades,
+            closed_klines,
+            output_trade_log,
+            output_trade_log_name,
+            api_client_opt,
+            TradeSide::Sell,
+        );
         open_trade(
             symbol,
             metric,
@@ -213,8 +225,18 @@ pub fn pct_strategy(
         );
     } else if momentum_pct_prev >= config.momentum_pct * -1.
         && momentum_pct_curr <= config.momentum_pct * -1.
-        && !uptrend
     {
+        // Close buy trades
+        close_trade(
+            metric,
+            config,
+            trades,
+            closed_klines,
+            output_trade_log,
+            output_trade_log_name,
+            api_client_opt,
+            TradeSide::Buy,
+        );
         open_trade(
             symbol,
             metric,
@@ -335,6 +357,9 @@ pub fn trade_log(
     let entry_date = NaiveDateTime::from_timestamp_millis(trade.entry_ts).unwrap();
     metric.max_usd = metric.max_usd.max(metric.usd_balance);
     metric.min_usd = metric.min_usd.min(metric.usd_balance);
+    metric.max_drawdown = metric
+        .max_drawdown
+        .max((metric.usd_balance - metric.max_usd) / metric.max_usd * -1.);
     let mut msg = "".to_string();
     msg += &format!("date: {:?}, ", curr_date);
     msg += &format!("usd_balance: {:.4}, ", metric.usd_balance);
@@ -349,6 +374,7 @@ pub fn trade_log(
     msg += &format!("exit_price: {:.4}, ", trade.exit_price);
     msg += &format!("profit: {:.4}, ", metric.profit);
     msg += &format!("fee: {:.4}, ", metric.fee);
+    msg += &format!("max_drawdown: {:.4}, ", metric.max_drawdown);
 
     if metric.profit > 0. {
         metric.win += 1;
@@ -384,6 +410,7 @@ pub fn trade_log(
         record.push(config.risk_portion.to_string());
         record.push(config.tp_ratio.to_string());
         record.push(config.look_back_count.to_string());
+        record.push(format!("{:.*}", 4, metric.max_drawdown));
         writer.write_record(&record).unwrap();
         writer.flush().unwrap();
     }

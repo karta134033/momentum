@@ -5,10 +5,11 @@ use trade_utils::types::kline::Kline;
 use trade_utils::types::trade::Trade;
 
 use crate::strategy::{pct_strategy, sl_tp_exit};
-use crate::types::BacktestConfig;
+use crate::types::{BacktestConfig, SettingConfig};
 
 pub struct Backtest {
     config: BacktestConfig,
+    setting_config: SettingConfig,
     closed_klines: VecDeque<Kline>,
     output_result: bool,
 }
@@ -25,6 +26,7 @@ pub struct BacktestMetric {
     pub min_usd: f64,
     pub fee: f64,
     pub profit: f64,
+    pub max_drawdown: f64,
 }
 
 impl BacktestMetric {
@@ -42,13 +44,21 @@ impl BacktestMetric {
 impl Backtest {
     pub fn output_name(&self) -> String {
         format!(
-            "./backtest_output/{}_{}_{}_backtest_output.csv",
-            self.config.risk_portion, self.config.tp_ratio, self.config.look_back_count
+            "./backtest_output/{}_{}_{}_{}_backtest_output.csv",
+            self.config.risk_portion,
+            self.config.tp_ratio,
+            self.config.look_back_count,
+            self.setting_config.collection_postfix
         )
     }
-    pub fn new(config: &BacktestConfig, output_result: bool) -> Backtest {
+    pub fn new(
+        config: &BacktestConfig,
+        setting_config: &SettingConfig,
+        output_result: bool,
+    ) -> Backtest {
         let backtest = Backtest {
             config: config.clone(),
+            setting_config: setting_config.clone(),
             closed_klines: VecDeque::new(),
             output_result,
         };
@@ -72,6 +82,7 @@ impl Backtest {
                     "risk_portion",
                     "tp_ratio",
                     "look_back_count",
+                    "max_drawdown",
                 ])
                 .unwrap();
             writer.flush().unwrap();

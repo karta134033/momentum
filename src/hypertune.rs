@@ -5,9 +5,17 @@ use log::info;
 use serde_json::{json, Map, Value};
 use trade_utils::types::kline::Kline;
 
-use crate::{backtest, types::BacktestConfig};
+use crate::{
+    backtest,
+    types::{BacktestConfig, SettingConfig},
+};
 
-pub fn hypertune(value: &Value, klines: &Vec<Kline>, symbol: String) {
+pub fn hypertune(
+    value: &Value,
+    klines: &Vec<Kline>,
+    symbol: String,
+    setting_config: &SettingConfig,
+) {
     let raw_config = value.as_object().unwrap();
     let mut backtest_configs: Vec<BacktestConfig> = Vec::new();
     let mut backtest_config_value = json!({});
@@ -46,6 +54,7 @@ pub fn hypertune(value: &Value, klines: &Vec<Kline>, symbol: String) {
             "tp_ratio",
             "look_back_count",
             "momentum_pct",
+            "max_drawdown",
         ])
         .unwrap();
 
@@ -58,7 +67,7 @@ pub fn hypertune(value: &Value, klines: &Vec<Kline>, symbol: String) {
         .collect::<Vec<_>>();
 
     backtest_configs.iter().for_each(|config| {
-        let mut backtest = backtest::Backtest::new(config, false);
+        let mut backtest = backtest::Backtest::new(config, setting_config, false);
         let metric = backtest.run(klines, symbol.clone());
         let mut record = Vec::new();
         record.push(metric.initial_captial.to_string());
@@ -74,6 +83,7 @@ pub fn hypertune(value: &Value, klines: &Vec<Kline>, symbol: String) {
         record.push(config.tp_ratio.to_string());
         record.push(config.look_back_count.to_string());
         record.push(config.momentum_pct.to_string());
+        record.push(format!("{:.*}", 4, metric.max_drawdown));
         writer.write_record(&record).unwrap();
         writer.flush().unwrap();
     });

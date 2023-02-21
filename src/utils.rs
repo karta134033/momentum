@@ -9,13 +9,14 @@ use mongodb::{
 use serde_json::json;
 use trade_utils::{
     clients::mongo_client::MongoClient,
-    types::{kline::Kline, trade::Trade},
+    types::{account::Account, kline::Kline, trade::Trade},
 };
 
 use crate::consts::{KLINE_DB, LOCAL_MONGO_CONNECTION_STRING};
 
 pub const LOG_DB: &str = "momentum_logs";
 pub const LOG_COLLECTION: &str = "trades";
+pub const ACCOUNT_COLLECTION: &str = "account";
 
 pub fn get_klines_from_db(from_str: &str, to_str: &str, collection: &str) -> Vec<Kline> {
     let from_datetime = NaiveDateTime::parse_from_str(from_str, "%Y-%m-%d %H:%M:%S").unwrap();
@@ -46,6 +47,27 @@ pub fn log_trades(trades: &Vec<Trade>, version: &str) {
         info!("Log {:?} success", trades);
     } else {
         warn!("Failed to log {:?}", trades);
+    }
+}
+
+pub fn log_account(account: &Account, version: &str) {
+    let mongo_clinet = task::block_on(MongoClient::new(LOCAL_MONGO_CONNECTION_STRING));
+    let collection = mongo_clinet
+        .client
+        .database(LOG_DB)
+        .collection(LOG_COLLECTION);
+    let now = Utc::now();
+    let doc = json!({
+        "version": version,
+        "account": account,
+        "timestamp": now.timestamp(),
+        "datetime": now.to_string()
+    });
+    let log_res = task::block_on(collection.insert_one(doc.clone(), None));
+    if log_res.is_ok() {
+        println!("Log account success");
+    } else {
+        warn!("Failed to log account {:?}", log_res);
     }
 }
 

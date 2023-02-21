@@ -13,6 +13,7 @@ use momentum::types::BacktestConfig;
 use momentum::types::Cli;
 use momentum::types::SettingConfig;
 use momentum::utils::get_trades;
+use momentum::utils::log_account;
 use momentum::utils::log_trades;
 use trade_utils::clients::binance::api::BinanceFuturesApiClient;
 
@@ -80,6 +81,7 @@ fn main() {
                     if last_close_timestamp == curr_kline.close_timestamp {
                         let account = task::block_on(api_client.get_account()).unwrap();
                         println!("Current account: {:?}", account);
+                        log_account(&account, &version);
                     } else {
                         let closed_kline = recent_klines.first().unwrap();
                         replay_klines.pop_back(); // Update latest kline
