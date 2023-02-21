@@ -55,7 +55,7 @@ pub fn log_account(account: &Account, version: &str) {
     let collection = mongo_clinet
         .client
         .database(LOG_DB)
-        .collection(LOG_COLLECTION);
+        .collection(ACCOUNT_COLLECTION);
     let now = Utc::now();
     let doc = json!({
         "version": version,

@@ -78,6 +78,7 @@ fn main() {
                 Ok(recent_klines) => {
                     let curr_kline = recent_klines.last().unwrap();
                     let last_close_timestamp = replay_klines.back().unwrap().close_timestamp;
+                    println!("recent_klines: {:?}", recent_klines);
 
                     if last_close_timestamp == curr_kline.close_timestamp {
                         let account = task::block_on(api_client.get_account()).unwrap();
