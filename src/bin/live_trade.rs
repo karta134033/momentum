@@ -3,7 +3,6 @@ use std::fs::File;
 use std::thread;
 
 use async_std::task;
-use chrono::Utc;
 use clap::Parser;
 use log::info;
 use log::warn;
@@ -26,6 +25,7 @@ fn main() {
     info!("args: {:?}", args);
     let setting_config_file = File::open(&args.setting_config.unwrap()).unwrap();
     let setting_config: SettingConfig = serde_json::from_reader(setting_config_file).unwrap();
+    let interval = setting_config.collection_postfix.replace("_", "");
 
     let api_client =
         BinanceFuturesApiClient::new(setting_config.api_key, setting_config.secret_key);
@@ -34,12 +34,8 @@ fn main() {
     info!("Current account: {:?}", account);
 
     // ===== Replay =====
-    let start_time = (Utc::now() - chrono::Duration::days(30))
-        .timestamp_millis()
-        .to_string();
     let replay_klines_res =
-        task::block_on(api_client.get_klines(&symbol, "1d", Some(start_time.as_str()), None, None))
-            .unwrap();
+        task::block_on(api_client.get_klines(&symbol, &interval, None, None, Some("30"))).unwrap();
     let mut replay_klines = VecDeque::from(replay_klines_res);
 
     let backtest_config_file = File::open(&args.backtest_config.unwrap()).unwrap();
@@ -62,11 +58,16 @@ fn main() {
     loop {
         if minute_timer.update() {
             let mut recent_klines_res =
-                task::block_on(api_client.get_klines(&symbol, "1d", None, None, Some("2")));
+                task::block_on(api_client.get_klines(&symbol, &interval, None, None, Some("2")));
             for _ in 0..retry_times {
                 if recent_klines_res.is_err() {
-                    recent_klines_res =
-                        task::block_on(api_client.get_klines(&symbol, "1d", None, None, Some("2")));
+                    recent_klines_res = task::block_on(api_client.get_klines(
+                        &symbol,
+                        &interval,
+                        None,
+                        None,
+                        Some("2"),
+                    ));
                     info!("Retry get recent klines");
                 } else {
                     break;
