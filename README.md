@@ -4,6 +4,7 @@ cargo run --bin momentum -- -b ./backtest_4h_config.json -s ./backtest_setting_4
 
 ## Hypertune
 cargo run --bin momentum -- -t ./hypertune_config.json -s ./hypertune_setting_config.json -m h
+cargo run --bin momentum -- -t ./hypertune_config.json -s ./hypertune_setting_4h_config.json -m h
 
 ## Live trade
 cargo run --bin live_trade -- -b ./backtest_4h_config.json -s ./setting_4h_config.json -m l

@@ -71,18 +71,22 @@ pub fn hypertune(
         let metric = backtest.run(klines, symbol.clone());
         let mut record = Vec::new();
         record.push(metric.initial_captial.to_string());
-        record.push(metric.usd_balance.to_string());
-        record.push(metric.max_usd.to_string());
-        record.push(metric.min_usd.to_string());
+        record.push(format!("{:.*}", 4, metric.usd_balance));
+        record.push(format!("{:.*}", 4, metric.max_usd));
+        record.push(format!("{:.*}", 4, metric.min_usd));
         record.push(metric.win.to_string());
         record.push(metric.lose.to_string());
-        record.push((metric.win as f64 / (metric.win + metric.lose) as f64).to_string());
-        record.push(metric.total_fee.to_string());
-        record.push(metric.total_profit.to_string());
-        record.push(config.risk_portion.to_string());
-        record.push(config.tp_ratio.to_string());
-        record.push(config.look_back_count.to_string());
-        record.push(config.momentum_pct.to_string());
+        record.push(format!(
+            "{:.*}",
+            4,
+            (metric.win as f64 / (metric.win + metric.lose) as f64)
+        ));
+        record.push(format!("{:.*}", 4, metric.total_fee));
+        record.push(format!("{:.*}", 4, metric.total_profit));
+        record.push(format!("{:.*}", 4, config.risk_portion));
+        record.push(format!("{:.*}", 4, config.tp_ratio));
+        record.push(format!("{:.*}", 2, config.look_back_count));
+        record.push(format!("{:.*}", 4, config.momentum_pct));
         record.push(format!("{:.*}", 4, metric.max_drawdown));
         writer.write_record(&record).unwrap();
         writer.flush().unwrap();
