@@ -276,6 +276,7 @@ pub fn sl_tp_exit(
                     kline,
                     trade,
                 );
+                info!("sl trade: {:?}", trade);
                 place_order(trade.symbol.clone(), api_client_opt, &trade, true);
                 false
             } else if kline.close >= trade.tp_price {
@@ -294,6 +295,7 @@ pub fn sl_tp_exit(
                     kline,
                     trade,
                 );
+                info!("tp trade: {:?}", trade);
                 place_order(trade.symbol.clone(), api_client_opt, &trade, true);
                 false
             } else {
@@ -316,6 +318,7 @@ pub fn sl_tp_exit(
                     kline,
                     trade,
                 );
+                info!("sl trade: {:?}", trade);
                 place_order(trade.symbol.clone(), api_client_opt, &trade, true);
                 false
             } else if kline.close <= trade.tp_price {
@@ -334,6 +337,7 @@ pub fn sl_tp_exit(
                     kline,
                     trade,
                 );
+                info!("tp trade: {:?}", trade);
                 place_order(trade.symbol.clone(), api_client_opt, &trade, true);
                 false
             } else {

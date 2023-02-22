@@ -54,7 +54,6 @@ fn main() {
     let retry_secs = 5; // secs
 
     // ===== Live =====
-    let output_trade_log_name = "live_trade_output";
     loop {
         if minute_timer.update() {
             let mut recent_klines_res =
@@ -94,8 +93,8 @@ fn main() {
                             &mut metric,
                             &backtest_config,
                             &mut trades,
-                            true,
-                            output_trade_log_name,
+                            false,
+                            "",
                             &closed_kline,
                             Some(&api_client),
                         );
@@ -105,8 +104,8 @@ fn main() {
                             &backtest_config,
                             &mut trades,
                             &replay_klines,
-                            true,
-                            output_trade_log_name,
+                            false,
+                            "",
                             Some(&api_client),
                         );
                         replay_klines.pop_front();
