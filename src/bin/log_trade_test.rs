@@ -15,6 +15,7 @@ fn main() {
         position: 22999.0,
         tp_price: 1.0,
         sl_price: 1.0,
+        ..Default::default()
     }];
     log_trades(&trades, version);
     let trades_from_db = task::block_on(get_trades(version));

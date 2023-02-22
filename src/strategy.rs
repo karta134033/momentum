@@ -11,6 +11,7 @@ use trade_utils::{
         trade::{Trade, TradeSide},
     },
 };
+use uuid::Uuid;
 
 use crate::{backtest::BacktestMetric, types::BacktestConfig};
 
@@ -98,23 +99,24 @@ pub fn open_trade(
     let kline = closed_klines.back().unwrap();
     let entry_price = kline.close;
 
-    let mut sl_price_diff;
     let sl_price;
     let tp_price;
     match entry_side {
         TradeSide::Sell => {
-            sl_price_diff = f64::abs(kline.close - kline.high);
-            if sl_price_diff / kline.close > config.risk_portion {
-                sl_price_diff = kline.close * config.risk_portion;
-            }
+            // sl_price_diff = f64::abs(kline.close - kline.high);
+            // if sl_price_diff / kline.close > config.risk_portion {
+            //     sl_price_diff = kline.close * config.risk_portion;
+            // }
+            let sl_price_diff = kline.close * config.risk_portion;
             sl_price = entry_price + sl_price_diff;
             tp_price = entry_price - config.tp_ratio * sl_price_diff
         }
         TradeSide::Buy => {
-            sl_price_diff = f64::abs(kline.close - kline.low);
-            if sl_price_diff / kline.close > config.risk_portion {
-                sl_price_diff = kline.close * config.risk_portion;
-            }
+            // sl_price_diff = f64::abs(kline.close - kline.low);
+            // if sl_price_diff / kline.close > config.risk_portion {
+            //     sl_price_diff = kline.close * config.risk_portion;
+            // }
+            let sl_price_diff = kline.close * config.risk_portion;
             sl_price = entry_price - sl_price_diff;
             tp_price = entry_price + config.tp_ratio * sl_price_diff;
         }
@@ -134,6 +136,8 @@ pub fn open_trade(
         sl_price,
         position,
         exit_price: -1.,
+        half_exit: false,
+        uuid: Uuid::new_v4().to_string(),
     };
     place_order(trade.symbol.clone(), api_client_opt, &trade, false);
     trades.push(trade);
@@ -259,86 +263,49 @@ pub fn sl_tp_exit(
     api_client_opt: Option<&BinanceFuturesApiClient>,
 ) {
     trades.retain_mut(|trade: &mut Trade| {
+        let mut exit = |trade: &mut Trade| {
+            let sign = match trade.entry_side {
+                TradeSide::Sell => -1.0,
+                TradeSide::Buy => 1.0,
+                TradeSide::None => unimplemented!(),
+            };
+            let profit = (kline.close - trade.entry_price) * trade.position * sign;
+            metric.usd_balance += profit;
+            metric.fee = kline.close * trade.position * config.fee_rate;
+            metric.total_fee += metric.fee;
+            metric.profit = profit;
+            metric.total_profit += profit;
+            trade.exit_price = kline.close;
+            trade_log(
+                metric,
+                config,
+                output_trade_log,
+                output_trade_log_name,
+                kline,
+                trade,
+            );
+            place_order(trade.symbol.clone(), api_client_opt, &trade, true);
+        };
         if trade.entry_side == TradeSide::Buy {
             if kline.close <= trade.sl_price {
-                let profit = (kline.close - trade.entry_price) * trade.position;
-                metric.usd_balance += profit;
-                metric.fee = kline.close * trade.position * config.fee_rate;
-                metric.total_fee += metric.fee;
-                metric.profit = profit;
-                metric.total_profit += profit;
-                trade.exit_price = kline.close;
-                trade_log(
-                    metric,
-                    config,
-                    output_trade_log,
-                    output_trade_log_name,
-                    kline,
-                    trade,
-                );
+                exit(trade);
                 info!("sl trade: {:?}", trade);
-                place_order(trade.symbol.clone(), api_client_opt, &trade, true);
                 false
             } else if kline.close >= trade.tp_price {
-                let profit = (kline.close - trade.entry_price) * trade.position;
-                metric.usd_balance += profit;
-                metric.fee = kline.close * trade.position * config.fee_rate;
-                metric.total_fee += metric.fee;
-                metric.profit = profit;
-                metric.total_profit += profit;
-                trade.exit_price = kline.close;
-                trade_log(
-                    metric,
-                    config,
-                    output_trade_log,
-                    output_trade_log_name,
-                    kline,
-                    trade,
-                );
+                exit(trade);
                 info!("tp trade: {:?}", trade);
-                place_order(trade.symbol.clone(), api_client_opt, &trade, true);
                 false
             } else {
                 true
             }
         } else if trade.entry_side == TradeSide::Sell {
             if kline.close >= trade.sl_price {
-                let profit = (trade.entry_price - kline.close) * trade.position;
-                metric.usd_balance += profit;
-                metric.fee = kline.close * trade.position * config.fee_rate;
-                metric.total_fee += metric.fee;
-                metric.profit = profit;
-                metric.total_profit += profit;
-                trade.exit_price = kline.close;
-                trade_log(
-                    metric,
-                    config,
-                    output_trade_log,
-                    output_trade_log_name,
-                    kline,
-                    trade,
-                );
+                exit(trade);
                 info!("sl trade: {:?}", trade);
-                place_order(trade.symbol.clone(), api_client_opt, &trade, true);
                 false
             } else if kline.close <= trade.tp_price {
-                let profit = (trade.entry_price - kline.close) * trade.position;
-                metric.usd_balance += profit;
-                metric.fee = kline.close * trade.position * config.fee_rate;
-                metric.total_fee += metric.fee;
-                metric.profit = profit;
-                metric.total_profit += profit;
-                trade.exit_price = kline.close;
-                trade_log(
-                    metric,
-                    config,
-                    output_trade_log,
-                    output_trade_log_name,
-                    kline,
-                    trade,
-                );
+                exit(trade);
                 info!("tp trade: {:?}", trade);
-                place_order(trade.symbol.clone(), api_client_opt, &trade, true);
                 false
             } else {
                 true
