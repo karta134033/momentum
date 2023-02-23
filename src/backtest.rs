@@ -44,10 +44,11 @@ impl BacktestMetric {
 impl Backtest {
     pub fn output_name(&self) -> String {
         format!(
-            "./backtest_output/{}_{}_{}_{}_backtest_output.csv",
+            "./backtest_output/{}_{}_{}_{}_{}_backtest_output.csv",
             self.config.risk_portion,
             self.config.tp_ratio,
             self.config.look_back_count,
+            self.config.momentum_pct,
             self.setting_config.collection_postfix
         )
     }

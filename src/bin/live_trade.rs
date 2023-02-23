@@ -119,7 +119,7 @@ fn main() {
                 }
             }
         } else {
-            thread::sleep(std::time::Duration::from_secs(10));
+            thread::sleep(std::time::Duration::from_secs(5));
         }
     }
 }

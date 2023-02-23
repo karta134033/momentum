@@ -155,6 +155,13 @@ pub fn pct_strategy(
     output_trade_log_name: &str,
     api_client_opt: Option<&BinanceFuturesApiClient>,
 ) {
+    if let Some(api_client) = api_client_opt {
+        let account = task::block_on(api_client.get_account()).unwrap();
+        // Correct the usd_balance during live trade
+        let usd_balance = account.get_usd_balance();
+        metric.usd_balance = usd_balance;
+    }
+
     let prev_l_close =
         closed_klines[closed_klines.len() - 1 - 1 - config.look_back_count as usize].close;
     let prev_r_close = closed_klines[closed_klines.len() - 1 - 1].close;
@@ -163,19 +170,19 @@ pub fn pct_strategy(
     let curr_r_close = closed_klines[closed_klines.len() - 1].close;
     let momentum_pct_prev = prev_r_close / prev_l_close - 1.;
     let momentum_pct_curr = curr_r_close / curr_l_close - 1.;
-    let kline = closed_klines.back().unwrap();
-    let _uptrend = kline.close > kline.open;
 
-    if let Some(api_client) = api_client_opt {
-        let account = task::block_on(api_client.get_account()).unwrap();
-        let usd_balance = account.get_usd_balance(); // Correct the usd_balance during live trade
+    if let Some(_) = api_client_opt {
         info!(
-            "momentum_pct_prev: {}, momentum_pct_curr: {}",
-            momentum_pct_prev, momentum_pct_curr
+            "prev_l_close: {}, prev_r_close: {}, curr_l_close: {},
+            curr_r_close: {},  momentum_pct_prev: {}, momentum_pct_curr: {}",
+            prev_l_close,
+            prev_r_close,
+            curr_l_close,
+            curr_r_close,
+            momentum_pct_prev,
+            momentum_pct_curr
         );
-        metric.usd_balance = usd_balance;
     }
-
     if momentum_pct_prev <= config.momentum_pct && momentum_pct_curr >= config.momentum_pct {
         // Close sell trades
         close_trade(
