@@ -176,36 +176,6 @@ pub fn pct_strategy(
         metric.usd_balance = usd_balance;
     }
 
-    if momentum_pct_prev >= config.momentum_pct && momentum_pct_curr <= config.momentum_pct {
-        // Close buy trades
-        close_trade(
-            metric,
-            config,
-            trades,
-            closed_klines,
-            output_trade_log,
-            output_trade_log_name,
-            api_client_opt,
-            TradeSide::Buy,
-        );
-    }
-
-    if momentum_pct_prev <= config.momentum_pct * -1.
-        && momentum_pct_curr >= config.momentum_pct * -1.
-    {
-        // Close sell trades
-        close_trade(
-            metric,
-            config,
-            trades,
-            closed_klines,
-            output_trade_log,
-            output_trade_log_name,
-            api_client_opt,
-            TradeSide::Sell,
-        );
-    }
-
     if momentum_pct_prev <= config.momentum_pct && momentum_pct_curr >= config.momentum_pct {
         // Close sell trades
         close_trade(
